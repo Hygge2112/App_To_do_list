@@ -1,7 +1,7 @@
 package com.example.to_do_list.data
 
 import android.os.Build
-import android.util.Log // << THÊM IMPORT
+import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -16,7 +16,7 @@ import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
-private const val TAG = "HabitApp" // << THÊM HẰNG SỐ ĐỂ LỌC LOG
+private const val TAG = "HabitApp"
 
 @RequiresApi(Build.VERSION_CODES.O)
 class HabitViewModel : ViewModel() {
@@ -28,14 +28,20 @@ class HabitViewModel : ViewModel() {
     val habits = _habits.asStateFlow()
 
     init {
-        // Tải danh sách thói quen cho ngày hôm nay khi ViewModel được tạo
-        loadHabitsForDate(LocalDate.now())
+        // Chỉ tải thói quen nếu người dùng đã đăng nhập
+        if (auth.currentUser != null) {
+            loadHabitsForDate(LocalDate.now())
+        }
     }
 
-    // Tải các thói quen cho một ngày cụ thể
     fun loadHabitsForDate(date: LocalDate) {
-        val userId = auth.currentUser?.uid ?: return
-        val dateString = date.format(DateTimeFormatter.ISO_LOCAL_DATE) // "yyyy-MM-dd"
+        val userId = auth.currentUser?.uid
+        if (userId == null) {
+            Log.d(TAG, "loadHabitsForDate: Người dùng chưa đăng nhập, không tải dữ liệu.")
+            return
+        }
+
+        val dateString = date.format(DateTimeFormatter.ISO_LOCAL_DATE)
 
         db.collection("habits")
             .whereEqualTo("userId", userId)
@@ -55,17 +61,21 @@ class HabitViewModel : ViewModel() {
                     doc.toObject<Habit>()?.copy(id = doc.id)
                 }
                 _habits.value = habitList
+                Log.d(TAG, "Đã tải thành công ${habitList.size} thói quen cho ngày $dateString")
             }
     }
 
-    // --- HÀM NÀY ĐÃ ĐƯỢC THAY THẾ HOÀN TOÀN ---
-    // Thêm một thói quen mới vào Firestore
     fun addHabit(habit: Habit, onComplete: () -> Unit) {
         val currentUser = auth.currentUser
         if (currentUser == null) {
             Log.e(TAG, "LỖI: Người dùng chưa đăng nhập, không thể thêm thói quen.")
             return
         }
+
+        // --- LOG MỚI ĐỂ GỠ LỖI ---
+        Log.d(TAG, "Chuẩn bị lưu thói quen: $habit")
+        Log.d(TAG, "UserID hiện tại: ${currentUser.uid}")
+        // -------------------------
 
         viewModelScope.launch {
             try {
@@ -74,15 +84,14 @@ class HabitViewModel : ViewModel() {
                     .await()
 
                 Log.d(TAG, "THÀNH CÔNG: Đã thêm thói quen '${habit.name}' vào Firestore.")
-                onComplete() // Gọi callback khi thành công
+                onComplete()
             } catch (e: Exception) {
                 // In ra lỗi chi tiết để gỡ lỗi
-                Log.e(TAG, "LỖI KHI THÊM THÓI QUEN: ", e)
+                Log.e(TAG, "LỖI KHI THÊM THÓI QUEN: Thao tác Firestore thất bại.", e)
             }
         }
     }
 
-    // Cập nhật trạng thái hoàn thành của thói quen
     fun toggleHabitCompleted(habitId: String, isCompleted: Boolean) {
         viewModelScope.launch {
             try {

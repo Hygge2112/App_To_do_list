@@ -8,6 +8,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -41,7 +42,6 @@ import com.example.to_do_list.ui.theme.*
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.*
@@ -53,22 +53,11 @@ fun HomeScreen(navController: NavController) {
     val habits by viewModel.habits.collectAsState()
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
 
-    LaunchedEffect(Unit) {
-        val auth = Firebase.auth
-        if (auth.currentUser == null) {
-            try {
-                auth.signInAnonymously().await()
-                Log.d("HabitApp", "Đăng nhập ẩn danh thành công: ${auth.currentUser?.uid}")
-                viewModel.loadHabitsForDate(selectedDate)
-            } catch (e: Exception) {
-                Log.e("HabitApp", "Lỗi đăng nhập ẩn danh", e)
-            }
-        } else {
-            Log.d("HabitApp", "Người dùng đã đăng nhập: ${auth.currentUser?.uid}")
-        }
-    }
+    // --- DI CHUYỂN KHAI BÁO RA NGOÀI ---
+    val auth = Firebase.auth
 
-    LaunchedEffect(selectedDate) {
+    // Tải lại thói quen mỗi khi ngày được chọn hoặc người dùng thay đổi
+    LaunchedEffect(selectedDate, auth.currentUser) {
         viewModel.loadHabitsForDate(selectedDate)
     }
 
@@ -100,7 +89,7 @@ fun HomeScreen(navController: NavController) {
             Spacer(modifier = Modifier.height(24.dp))
         }
         item {
-            FilterChips()
+            FilterChips(habits.size)
             Spacer(modifier = Modifier.height(16.dp))
         }
 
@@ -122,10 +111,10 @@ fun HomeScreen(navController: NavController) {
     }
 }
 
-@RequiresApi(Build.VERSION_CODES.O)
+// --- GIAO DIỆN MỚI CHO MỘT THÓI QUEN ---
 @Composable
 fun HabitItem(habit: Habit, onCompletedToggle: () -> Unit) {
-    val cardColor = try {
+    val habitColor = try {
         Color(android.graphics.Color.parseColor(habit.color))
     } catch (e: IllegalArgumentException) {
         MaterialTheme.colorScheme.primary
@@ -134,45 +123,70 @@ fun HabitItem(habit: Habit, onCompletedToggle: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = cardColor.copy(alpha = 0.15f))
+        colors = CardDefaults.cardColors(containerColor = habitColor.copy(alpha = 0.2f))
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(horizontal = 16.dp, vertical = 20.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 imageVector = Icons.Default.WaterDrop,
                 contentDescription = "Habit Icon",
-                tint = cardColor,
+                tint = habitColor,
                 modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(cardColor.copy(alpha = 0.2f))
-                    .padding(12.dp)
+                    .size(40.dp)
             )
             Spacer(modifier = Modifier.width(16.dp))
+
             Column(modifier = Modifier.weight(1f)) {
-                Text(habit.name, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                Text(
+                    text = habit.name,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 16.sp
+                )
                 Text(
                     text = habit.reminderTime ?: "No Time Selected",
-                    fontSize = 12.sp,
+                    fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Checkbox(
-                checked = habit.isCompleted,
-                onCheckedChange = { onCompletedToggle() },
-                colors = CheckboxDefaults.colors(
-                    checkedColor = cardColor,
-                    uncheckedColor = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            )
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .border(2.dp, habitColor, CircleShape)
+                    .clickable { onCompletedToggle() },
+                contentAlignment = Alignment.Center
+            ) {
+                if (habit.isCompleted) {
+                    Box(
+                        modifier = Modifier
+                            .size(18.dp)
+                            .clip(CircleShape)
+                            .background(habitColor)
+                    )
+                }
+            }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FilterChips(habitCount: Int) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FilterChip(selected = true, onClick = { }, label = { Text("Tất cả - $habitCount") })
+        FilterChip(selected = false, onClick = { }, label = { Text("Thói quen - $habitCount") })
+        FilterChip(selected = false, onClick = { }, label = { Text("Nhiệm vụ - 0") })
+    }
+}
+
+// ... (Các hàm còn lại giữ nguyên)
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun StatsCards(navController: NavController) {
@@ -402,7 +416,6 @@ fun WeekCalendar(selectedDate: LocalDate, onDateSelected: (LocalDate) -> Unit) {
 
 @Composable
 fun DateItem(date: CalendarDate, isSelected: Boolean, onDateClick: (LocalDate) -> Unit) {
-    // ---- DÒNG NÀY ĐÃ ĐƯỢC SỬA ----
     val contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
     val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primary else CardDarkBackground
 
@@ -417,17 +430,6 @@ fun DateItem(date: CalendarDate, isSelected: Boolean, onDateClick: (LocalDate) -
     ) {
         Text(text = date.dayOfMonth.toString(), fontWeight = FontWeight.Bold, color = contentColor, fontSize = 20.sp)
         Text(text = date.dayOfWeek, color = contentColor, fontSize = 14.sp)
-    }
-}
-
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun FilterChips() {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        FilterChip(selected = true, onClick = { }, label = { Text("Tất cả - 0") })
-        FilterChip(selected = false, onClick = { }, label = { Text("Thói quen - 0") })
-        FilterChip(selected = false, onClick = { }, label = { Text("Nhiệm vụ - 0") })
     }
 }
 
