@@ -1,20 +1,23 @@
 package com.example.to_do_list.ui.theme.create_habit
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow // Thêm import này
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.SportsEsports
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,16 +25,37 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.to_do_list.data.Habit
+import com.example.to_do_list.data.HabitViewModel
 import com.example.to_do_list.ui.theme.CardDarkBackground
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.YearMonth
+import java.time.format.DateTimeFormatter
+import java.util.*
+import androidx.compose.foundation.lazy.items // <-- THÊM IMPORT NÀY
 
+@RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CreateHabitScreen(navController: NavController) {
+fun CreateHabitScreen(navController: NavController, habitName: String?) {
+    val viewModel: HabitViewModel = viewModel()
+
+    var habitNameState by remember { mutableStateOf(habitName ?: "") }
+    val colors = listOf(Color(0xFF4CAF50), Color(0xFF2196F3), Color(0xFF9E9E9E), Color(0xFFF44336))
+    var selectedColor by remember { mutableStateOf(colors.first()) }
+    val selectedDates = remember { mutableStateListOf<LocalDate>() }
+    val timePickerState = rememberTimePickerState(is24Hour = false)
+    var selectedTime by remember { mutableStateOf<LocalTime?>(null) }
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -46,41 +70,92 @@ fun CreateHabitScreen(navController: NavController) {
                 )
             )
         },
+        bottomBar = {
+            CreateHabitBottomButton(onClick = {
+                if (habitNameState.isNotBlank()) {
+                    val newHabit = Habit(
+                        name = habitNameState,
+                        color = "#${Integer.toHexString(selectedColor.toArgb()).substring(2).uppercase()}",
+                        repetitionDates = selectedDates.map { it.format(DateTimeFormatter.ISO_LOCAL_DATE) },
+                        reminderTime = selectedTime?.format(DateTimeFormatter.ofPattern("HH:mm"))
+                    )
+                    viewModel.addHabit(newHabit) {
+                        navController.popBackStack()
+                    }
+                }
+            })
+        },
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 16.dp)
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                HabitNameAndIconSection()
-                Spacer(modifier = Modifier.height(24.dp))
-                ColorPickerSection()
-                Spacer(modifier = Modifier.height(32.dp))
-                RepetitionSection()
-                Spacer(modifier = Modifier.height(32.dp))
-                EndDateSection()
-                Spacer(modifier = Modifier.height(24.dp))
-                OtherOptionsSection()
-                Spacer(modifier = Modifier.height(24.dp))
-            }
+            Spacer(modifier = Modifier.height(16.dp))
+            HabitNameAndIconSection(
+                initialHabitName = habitName,
+                onNameChange = { habitNameState = it }
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            ColorPickerSection(
+                colors = colors,
+                selectedColor = selectedColor,
+                onColorSelected = { selectedColor = it }
+            )
+            Spacer(modifier = Modifier.height(32.dp))
+            RepetitionSection(
+                selectedDates = selectedDates,
+                onDateSelected = { date ->
+                    if (selectedDates.contains(date)) selectedDates.remove(date)
+                    else selectedDates.add(date)
+                }
+            )
+            Spacer(modifier = Modifier.height(32.dp))
+            ReminderSection(
+                timePickerState = timePickerState,
+                selectedTime = selectedTime,
+                onTimeSelected = { selectedTime = it }
+            )
         }
     }
 }
 
 @Composable
-fun HabitNameAndIconSection() {
-    var habitName by remember { mutableStateOf("") }
+fun CreateHabitBottomButton(onClick: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shadowElevation = 8.dp,
+        color = MaterialTheme.colorScheme.background
+    ) {
+        Button(
+            onClick = onClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 20.dp)
+                .height(52.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary
+            )
+        ) {
+            Text("Tạo thói quen", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+fun HabitNameAndIconSection(initialHabitName: String?, onNameChange: (String) -> Unit) {
+    var habitName by remember { mutableStateOf(initialHabitName ?: "") }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth()
     ) {
         Icon(
-            imageVector = Icons.Default.SportsEsports, // Icon ví dụ
+            imageVector = Icons.Default.SportsEsports,
             contentDescription = "Habit Icon",
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier
@@ -93,7 +168,10 @@ fun HabitNameAndIconSection() {
         Spacer(modifier = Modifier.width(16.dp))
         BasicTextField(
             value = habitName,
-            onValueChange = { habitName = it },
+            onValueChange = {
+                habitName = it
+                onNameChange(it)
+            },
             textStyle = TextStyle(
                 color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 20.sp,
@@ -104,6 +182,174 @@ fun HabitNameAndIconSection() {
             decorationBox = { innerTextField ->
                 Box(contentAlignment = Alignment.CenterStart) {
                     if (habitName.isEmpty()) {
+                        Text(
+                            "Nhập tên thói quen...",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 20.sp
+                        )
+                    }
+                    innerTextField()
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun ColorPickerSection(colors: List<Color>, selectedColor: Color, onColorSelected: (Color) -> Unit) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        items(colors) { color ->
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(color)
+                    .clickable { onColorSelected(color) }
+                    .border(
+                        width = 2.dp,
+                        color = if (selectedColor == color) MaterialTheme.colorScheme.onSurface else Color.Transparent,
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                if (selectedColor == color) {
+                    Icon(
+                        Icons.Default.Check,
+                        contentDescription = "Selected",
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        }
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.O)
+@Composable
+fun RepetitionSection(selectedDates: List<LocalDate>, onDateSelected: (LocalDate) -> Unit) {
+    var currentMonth by remember { mutableStateOf(YearMonth.now()) }
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("Lặp lại vào các ngày", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+        Spacer(modifier = Modifier.height(16.dp))
+        MonthHeader(
+            month = currentMonth,
+            onPreviousMonth = { currentMonth = currentMonth.minusMonths(1) },
+            onNextMonth = { currentMonth = currentMonth.plusMonths(1) }
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        MonthCalendarGrid(
+            month = currentMonth,
+            selectedDates = selectedDates,
+            onDateClick = onDateSelected
+        )
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.O)
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ReminderSection(timePickerState: TimePickerState, selectedTime: LocalTime?, onTimeSelected: (LocalTime?) -> Unit) {
+    var showTimePicker by remember { mutableStateOf(false) }
+
+    if (showTimePicker) {
+        TimePickerDialog(
+            onDismiss = { showTimePicker = false },
+            onConfirm = {
+                onTimeSelected(LocalTime.of(timePickerState.hour, timePickerState.minute))
+                showTimePicker = false
+            }
+        ) {
+            TimePicker(state = timePickerState)
+        }
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column {
+            Text("Time", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            selectedTime?.let {
+                Text(
+                    text = it.format(DateTimeFormatter.ofPattern("hh:mm a")),
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+        Switch(
+            checked = selectedTime != null,
+            onCheckedChange = { isChecked ->
+                if (isChecked) {
+                    showTimePicker = true
+                } else {
+                    onTimeSelected(null)
+                }
+            }
+        )
+    }
+}
+// --- THÊM LẠI HÀM BỊ THIẾU ---
+@Composable
+fun CreateHabitBottomButton() {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shadowElevation = 8.dp,
+        color = MaterialTheme.colorScheme.background
+    ) {
+        Button(
+            onClick = { /* TODO: Xử lý logic tạo thói quen */ },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 20.dp)
+                .height(52.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary
+            )
+        ) {
+            Text(
+                text = "Tạo thói quen",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
+fun HabitNameAndIconSection(initialHabitName: String?) {
+    var habitNameState by remember { mutableStateOf(initialHabitName ?: "") }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Icon(
+            imageVector = Icons.Default.SportsEsports,
+            contentDescription = "Habit Icon",
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .size(64.dp)
+                .clip(CircleShape)
+                .background(CardDarkBackground)
+                .clickable { /* TODO: Mở trang chọn icon */ }
+                .padding(16.dp)
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        BasicTextField(
+            value = habitNameState,
+            onValueChange = { habitNameState = it },
+            textStyle = TextStyle(
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
+            ),
+            singleLine = true,
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            decorationBox = { innerTextField ->
+                Box(contentAlignment = Alignment.CenterStart) {
+                    if (habitNameState.isEmpty()) {
                         Text(
                             text = "Nhập tên thói quen...",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -120,10 +366,7 @@ fun HabitNameAndIconSection() {
 @Composable
 fun ColorPickerSection() {
     val colors = listOf(
-        Color(0xFF4CAF50), // Green
-        Color(0xFF2196F3), // Blue
-        Color(0xFF9E9E9E), // Grey
-        Color(0xFFF44336)  // Red
+        Color(0xFF4CAF50), Color(0xFF2196F3), Color(0xFF9E9E9E), Color(0xFFF44336)
     )
     var selectedColorIndex by remember { mutableStateOf(0) }
 
@@ -155,74 +398,223 @@ fun ColorPickerSection() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun RepetitionSection() {
-    var selectedChip by remember { mutableStateOf("hàng tuần") }
-    val days = listOf("S", "M", "T", "W", "T", "F", "S")
-    val selectedDays = remember { mutableStateListOf("S", "M", "W") } // Ví dụ
+    var currentMonth by remember { mutableStateOf(YearMonth.now()) }
+    val selectedDates = remember { mutableStateListOf<LocalDate>() }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("Khoảng thời gian và sự lặp lại", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+        Text("Lặp lại vào các ngày", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
         Spacer(modifier = Modifier.height(16.dp))
-        // Chips Hàng ngày/tuần/tháng
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Hàng ngày", "hàng tuần", "hàng tháng").forEach {
-                FilterChip(
-                    selected = selectedChip == it,
-                    onClick = { selectedChip = it },
-                    label = { Text(it) }
-                )
+        MonthHeader(
+            month = currentMonth,
+            onPreviousMonth = { currentMonth = currentMonth.minusMonths(1) },
+            onNextMonth = { currentMonth = currentMonth.plusMonths(1) }
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        MonthCalendarGrid(
+            month = currentMonth,
+            selectedDates = selectedDates,
+            onDateClick = { date ->
+                if (selectedDates.contains(date)) {
+                    selectedDates.remove(date)
+                } else {
+                    selectedDates.add(date)
+                }
             }
+        )
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.O)
+@Composable
+fun MonthHeader(month: YearMonth, onPreviousMonth: () -> Unit, onNextMonth: () -> Unit) {
+    val formatter = DateTimeFormatter.ofPattern("MMMM yyyy", Locale("vi"))
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(onClick = onPreviousMonth) {
+            Icon(Icons.Default.ChevronLeft, contentDescription = "Tháng trước")
         }
-        Spacer(modifier = Modifier.height(24.dp))
-        // Các ngày trong tuần
+        Text(
+            text = month.format(formatter).replaceFirstChar { it.titlecase(Locale.getDefault()) },
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
+        IconButton(onClick = onNextMonth) {
+            Icon(Icons.Default.ChevronRight, contentDescription = "Tháng sau")
+        }
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.O)
+@Composable
+fun MonthCalendarGrid(
+    month: YearMonth,
+    selectedDates: List<LocalDate>,
+    onDateClick: (LocalDate) -> Unit
+) {
+    val today = LocalDate.now()
+    val daysInMonth = month.lengthOfMonth()
+    val firstDayOfMonth = month.atDay(1).dayOfWeek.value % 7
+    val days = (1..daysInMonth).toList()
+    val weekDays = listOf("CN", "2", "3", "4", "5", "6", "7")
+
+    Column {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            days.forEach { day ->
+            weekDays.forEach { day ->
                 Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(if (day in selectedDays) MaterialTheme.colorScheme.primary else CardDarkBackground)
-                        .clickable {
-                            if (day in selectedDays) selectedDays.remove(day) else selectedDays.add(day)
-                        },
+                    modifier = Modifier.weight(1f),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(day, color = if (day in selectedDays) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
+                    Text(
+                        text = day,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(7),
+            modifier = Modifier.height(300.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(firstDayOfMonth) {
+                Spacer(Modifier)
+            }
+            items(days) { day ->
+                val date = month.atDay(day)
+                val isEnabled = !date.isBefore(today)
+                val isSelected = date in selectedDates
+
+                val backgroundColor = when {
+                    isSelected -> MaterialTheme.colorScheme.primary
+                    else -> CardDarkBackground
+                }
+                val contentColor = when {
+                    isSelected -> MaterialTheme.colorScheme.onPrimary
+                    isEnabled -> MaterialTheme.colorScheme.onSurface
+                    else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                }
+
+                Box(
+                    modifier = Modifier
+                        .aspectRatio(1f)
+                        .clip(CircleShape)
+                        .background(backgroundColor)
+                        .clickable(enabled = isEnabled) { onDateClick(date) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = day.toString(),
+                        color = contentColor,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             }
         }
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EndDateSection() {
-    var isEndDateEnabled by remember { mutableStateOf(false) }
+fun ReminderSection() {
+    var showTimePicker by remember { mutableStateOf(false) }
+    val timePickerState = rememberTimePickerState(is24Hour = false)
+    var selectedTime by remember { mutableStateOf<LocalTime?>(null) }
+
+    if (showTimePicker) {
+        TimePickerDialog(
+            onDismiss = { showTimePicker = false },
+            onConfirm = {
+                selectedTime = LocalTime.of(timePickerState.hour, timePickerState.minute)
+                showTimePicker = false
+            }
+        ) {
+            TimePicker(state = timePickerState)
+        }
+    }
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text("End Date", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-        Switch(checked = isEndDateEnabled, onCheckedChange = { isEndDateEnabled = it })
+        Column {
+            Text("Time", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            selectedTime?.let {
+                Text(
+                    text = it.format(DateTimeFormatter.ofPattern("hh:mm a")),
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+        Switch(
+            checked = selectedTime != null,
+            onCheckedChange = { isChecked ->
+                if (isChecked) {
+                    showTimePicker = true
+                } else {
+                    selectedTime = null
+                }
+            }
+        )
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun OtherOptionsSection() {
-    Row(
+fun TimePickerDialog(
+    title: String = "Chọn giờ",
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+    toggle: @Composable () -> Unit = {},
+    content: @Composable () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
         modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(CardDarkBackground)
-            .clickable { /* TODO: Mở menu tùy chọn */ }
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(Icons.Default.Add, contentDescription = "Tùy chọn khác")
-        Spacer(modifier = Modifier.width(8.dp))
-        Text("Tùy chọn khác", modifier = Modifier.weight(1f))
-        Icon(Icons.Default.ExpandMore, contentDescription = "Mở rộng")
-    }
+            .widthIn(max = 360.dp)
+            .padding(24.dp),
+        title = {
+            Box(Modifier.fillMaxWidth()) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+                Box(Modifier.align(Alignment.CenterEnd)) {
+                    toggle()
+                }
+            }
+        },
+        text = {
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                content()
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("OK")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Hủy")
+            }
+        }
+    )
 }

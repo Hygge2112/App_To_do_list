@@ -1,6 +1,7 @@
 package com.example.to_do_list.ui.theme.main.home
 
 import android.os.Build
+import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -11,15 +12,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -32,19 +32,46 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.to_do_list.data.Habit
+import com.example.to_do_list.data.HabitViewModel
 import com.example.to_do_list.navigation.Routes
-import com.example.to_do_list.ui.theme.CardDarkBackground
-import com.example.to_do_list.ui.theme.DarkBackground
-import com.example.to_do_list.ui.theme.OffWhite
+import com.example.to_do_list.ui.theme.*
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
 import java.time.format.TextStyle
-import java.util.Locale
+import java.util.*
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun HomeScreen(navController: NavController) {
+    val viewModel: HabitViewModel = viewModel()
+    val habits by viewModel.habits.collectAsState()
+    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
+
+    LaunchedEffect(Unit) {
+        val auth = Firebase.auth
+        if (auth.currentUser == null) {
+            try {
+                auth.signInAnonymously().await()
+                Log.d("HabitApp", "Đăng nhập ẩn danh thành công: ${auth.currentUser?.uid}")
+                viewModel.loadHabitsForDate(selectedDate)
+            } catch (e: Exception) {
+                Log.e("HabitApp", "Lỗi đăng nhập ẩn danh", e)
+            }
+        } else {
+            Log.d("HabitApp", "Người dùng đã đăng nhập: ${auth.currentUser?.uid}")
+        }
+    }
+
+    LaunchedEffect(selectedDate) {
+        viewModel.loadHabitsForDate(selectedDate)
+    }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -66,15 +93,82 @@ fun HomeScreen(navController: NavController) {
             Spacer(modifier = Modifier.height(24.dp))
         }
         item {
-            WeekCalendar()
+            WeekCalendar(
+                selectedDate = selectedDate,
+                onDateSelected = { selectedDate = it }
+            )
             Spacer(modifier = Modifier.height(24.dp))
         }
         item {
             FilterChips()
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(16.dp))
         }
-        item {
-            EmptyState()
+
+        if (habits.isEmpty()) {
+            item {
+                EmptyState()
+            }
+        } else {
+            items(habits, key = { it.id }) { habit ->
+                HabitItem(
+                    habit = habit,
+                    onCompletedToggle = {
+                        viewModel.toggleHabitCompleted(habit.id, !habit.isCompleted)
+                    }
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+        }
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.O)
+@Composable
+fun HabitItem(habit: Habit, onCompletedToggle: () -> Unit) {
+    val cardColor = try {
+        Color(android.graphics.Color.parseColor(habit.color))
+    } catch (e: IllegalArgumentException) {
+        MaterialTheme.colorScheme.primary
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = cardColor.copy(alpha = 0.15f))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.WaterDrop,
+                contentDescription = "Habit Icon",
+                tint = cardColor,
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(cardColor.copy(alpha = 0.2f))
+                    .padding(12.dp)
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(habit.name, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                Text(
+                    text = habit.reminderTime ?: "No Time Selected",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Checkbox(
+                checked = habit.isCompleted,
+                onCheckedChange = { onCompletedToggle() },
+                colors = CheckboxDefaults.colors(
+                    checkedColor = cardColor,
+                    uncheckedColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            )
         }
     }
 }
@@ -170,7 +264,7 @@ fun StatsCards(navController: NavController) {
                         .shadow(4.dp, CircleShape)
                         .clip(CircleShape)
                         .background(Color.White)
-                        .clickable { navController.navigate(Routes.ADD_HABIT) }, // Điều hướng ở đây
+                        .clickable { navController.navigate(Routes.ADD_HABIT) },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -225,15 +319,12 @@ fun EditNameDialog(
     )
 }
 
-
 data class CalendarDate(val dayOfMonth: Int, val dayOfWeek: String, val date: LocalDate)
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun WeekCalendar() {
+fun WeekCalendar(selectedDate: LocalDate, onDateSelected: (LocalDate) -> Unit) {
     val today = LocalDate.now()
-    var selectedDate by remember { mutableStateOf(today) }
-
     val lazyListState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
@@ -246,17 +337,14 @@ fun WeekCalendar() {
         )
     }
 
-    // --- THAY ĐỔI Ở ĐÂY: Dùng Box để xếp chồng các lớp ---
     Box(
         modifier = Modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center
     ) {
-        // Lớp dưới: Lịch cuộn
         LazyRow(
             state = lazyListState,
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
-            // Thêm padding ở cuối để ngày cuối không bị che mất
             contentPadding = PaddingValues(end = 120.dp)
         ) {
             itemsIndexed(items = dates, key = { _, date -> date.date }) { index, date ->
@@ -264,7 +352,7 @@ fun WeekCalendar() {
                     date = date,
                     isSelected = date.date == selectedDate,
                     onDateClick = {
-                        selectedDate = it
+                        onDateSelected(it)
                         coroutineScope.launch {
                             lazyListState.animateScrollToItem(index = (index - 2).coerceAtLeast(0))
                         }
@@ -273,22 +361,21 @@ fun WeekCalendar() {
             }
         }
 
-        // Lớp trên: Nút "Hôm nay"
         AnimatedVisibility(
             modifier = Modifier
-                .align(Alignment.CenterEnd) // Căn sang phải
-                .padding(end = 4.dp), // Thêm chút padding
+                .align(Alignment.CenterEnd)
+                .padding(end = 4.dp),
             visible = selectedDate != today,
             enter = fadeIn(animationSpec = tween(300)),
             exit = fadeOut(animationSpec = tween(300))
         ) {
             Row(
                 modifier = Modifier
-                    .height(48.dp) // Tăng chiều cao cho đẹp hơn
+                    .height(48.dp)
                     .clip(CircleShape)
                     .background(OffWhite)
                     .clickable {
-                        selectedDate = today
+                        onDateSelected(today)
                         coroutineScope.launch {
                             lazyListState.animateScrollToItem(index = 0)
                         }
@@ -315,8 +402,9 @@ fun WeekCalendar() {
 
 @Composable
 fun DateItem(date: CalendarDate, isSelected: Boolean, onDateClick: (LocalDate) -> Unit) {
-    val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primary else CardDarkBackground
+    // ---- DÒNG NÀY ĐÃ ĐƯỢC SỬA ----
     val contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+    val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primary else CardDarkBackground
 
     Column(
         modifier = Modifier
@@ -331,6 +419,7 @@ fun DateItem(date: CalendarDate, isSelected: Boolean, onDateClick: (LocalDate) -
         Text(text = date.dayOfWeek, color = contentColor, fontSize = 14.sp)
     }
 }
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

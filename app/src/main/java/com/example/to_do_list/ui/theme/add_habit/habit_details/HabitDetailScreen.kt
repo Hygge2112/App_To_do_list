@@ -301,20 +301,28 @@ fun HabitDetailScreen(navController: NavController, categoryName: String) {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             items(suggestions) { suggestion ->
-                SuggestedHabitItem(suggestion = suggestion)
+                // Truyền NavController vào item
+                SuggestedHabitItem(
+                    suggestion = suggestion,
+                    navController = navController
+                )
             }
         }
     }
 }
 
 @Composable
-fun SuggestedHabitItem(suggestion: SuggestedHabit) {
+fun SuggestedHabitItem(suggestion: SuggestedHabit, navController: NavController) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(50))
             .background(Color(0xFF2A2A2A))
-            .clickable { /* TODO: Xử lý khi chọn một gợi ý */ }
+            .clickable {
+                // --- THAY ĐỔI Ở ĐÂY: Điều hướng đến CreateHabitScreen với tham số ---
+                val route = "create_habit?habitName=${suggestion.name}"
+                navController.navigate(route)
+            }
             .padding(horizontal = 16.dp, vertical = 20.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -337,3 +345,4 @@ fun SuggestedHabitItem(suggestion: SuggestedHabit) {
         )
     }
 }
+

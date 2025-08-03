@@ -67,7 +67,10 @@ private val pages = listOf(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun OnboardingScreen(onGetStartedClick: () -> Unit) {
+fun OnboardingScreen(
+    onGetStartedClick: () -> Unit,
+    onLoginClick: () -> Unit // Thêm tham số mới
+) {
     val pagerState = rememberPagerState(pageCount = { pages.size })
 
     Scaffold(
@@ -75,7 +78,6 @@ fun OnboardingScreen(onGetStartedClick: () -> Unit) {
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
 
-            // Lớp nội dung chính (Pager và các nút)
             Column(
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -111,7 +113,7 @@ fun OnboardingScreen(onGetStartedClick: () -> Unit) {
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Button(
-                        onClick = onGetStartedClick,
+                        onClick = onGetStartedClick, // Sử dụng callback
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp),
@@ -125,7 +127,7 @@ fun OnboardingScreen(onGetStartedClick: () -> Unit) {
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    TextButton(onClick = { /* TODO: Handle login */ }) {
+                    TextButton(onClick = onLoginClick) { // Sử dụng callback
                         Text(
                             "Tôi đã có tài khoản",
                             color = TextSecondaryDark,
@@ -135,8 +137,6 @@ fun OnboardingScreen(onGetStartedClick: () -> Unit) {
                 }
             }
 
-            // ================== THAY ĐỔI Ở ĐÂY ==================
-            // Lớp tiêu đề ở trên cùng, góc trái
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -150,7 +150,6 @@ fun OnboardingScreen(onGetStartedClick: () -> Unit) {
                     fontWeight = FontWeight.Bold
                 )
             }
-            // =====================================================
         }
     }
 }
@@ -164,7 +163,6 @@ fun OnboardingPageContent(page: OnboardingPage) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Đẩy nội dung xuống để không bị tiêu đề che mất
         Spacer(modifier = Modifier.height(60.dp))
         Icon(
             imageVector = page.icon,
@@ -229,6 +227,6 @@ fun Modifier.coloredShadow(
 @Composable
 fun OnboardingScreenPreview() {
     To_do_listTheme {
-        OnboardingScreen(onGetStartedClick = {})
+        OnboardingScreen(onGetStartedClick = {}, onLoginClick = {})
     }
 }

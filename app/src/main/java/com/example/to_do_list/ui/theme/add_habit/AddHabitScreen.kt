@@ -75,7 +75,6 @@ fun AddHabitScreen(navController: NavController) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(8.dp))
-            // --- THAY ĐỔI Ở ĐÂY: Truyền navController vào ---
             CreateNewHabitButton(navController = navController)
             Spacer(modifier = Modifier.height(24.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -92,14 +91,14 @@ fun AddHabitScreen(navController: NavController) {
             LazyColumn(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                contentPadding = PaddingValues(bottom = 16.dp)
+                contentPadding = PaddingValues(bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 items(habitCategories) { category ->
                     HabitCategoryItem(
                         category = category,
                         navController = navController
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
                 }
             }
         }
@@ -107,14 +106,18 @@ fun AddHabitScreen(navController: NavController) {
 }
 
 @Composable
-// --- THAY ĐỔI Ở ĐÂY: Thêm NavController làm tham số ---
 fun CreateNewHabitButton(navController: NavController) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(50))
             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
-            .clickable { navController.navigate(Routes.CREATE_HABIT) } // Dòng này sẽ hết lỗi
+            .clickable {
+                // --- THAY ĐỔI Ở ĐÂY: Điều hướng đến route CREATE_HABIT mà không có tham số ---
+                // Route này sẽ trở thành "create_habit?habitName=null"
+                val route = Routes.CREATE_HABIT.replace("?habitName={habitName}", "")
+                navController.navigate(route)
+            }
             .padding(horizontal = 24.dp, vertical = 20.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

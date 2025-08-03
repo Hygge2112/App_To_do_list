@@ -3,16 +3,17 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization") version "2.0.0"
+    id("com.google.gms.google-services")
 }
 
 android {
     namespace = "com.example.to_do_list"
-    compileSdk = 35 // Đã cập nhật
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.example.to_do_list"
         minSdk = 24
-        targetSdk = 35 // Đã cập nhật
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 
@@ -50,6 +51,18 @@ android {
 
 dependencies {
 
+    // Firebase Bill of Materials (BOM) - Chỉ cần khai báo một lần
+    implementation(platform("com.google.firebase:firebase-bom:33.1.1"))
+
+    // Các thư viện Firebase
+    implementation("com.google.firebase:firebase-auth-ktx")
+    implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation("com.google.firebase:firebase-analytics")
+
+    // Thư viện ViewModel để quản lý logic, cần thiết cho AuthViewModel
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.1")
+
+    // Các thư viện AndroidX và Jetpack Compose
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.1")
     implementation("androidx.activity:activity-compose:1.9.0")
@@ -65,6 +78,7 @@ dependencies {
     // Thư viện Icons mở rộng
     implementation("androidx.compose.material:material-icons-extended-android:1.6.8")
 
+    // Các thư viện cho Testing
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
@@ -73,8 +87,6 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 
-    // Supabase BOM sẽ tự quản lý phiên bản của Ktor và các thư viện con
-    implementation(platform("io.github.jan-tennert.supabase:bom:3.2.0-beta-2"))
-    implementation("io.github.jan-tennert.supabase:postgrest-kt")
-    implementation("io.github.jan-tennert.supabase:auth-kt")
+    // Dòng này bị trùng và sai phiên bản, đã được xóa đi
+    // implementation(platform("com.google.firebase:firebase-bom:33.16.0"))
 }
