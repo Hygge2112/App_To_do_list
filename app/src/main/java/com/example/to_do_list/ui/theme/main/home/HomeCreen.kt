@@ -1,15 +1,14 @@
 package com.example.to_do_list.ui.theme.main.home
 
 import android.os.Build
-import android.util.Log
 import androidx.annotation.RequiresApi
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -29,8 +28,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -39,12 +42,16 @@ import com.example.to_do_list.data.Habit
 import com.example.to_do_list.data.HabitViewModel
 import com.example.to_do_list.navigation.Routes
 import com.example.to_do_list.ui.theme.*
+// THÊM MỚI: Import HabitIconProvider để sử dụng
+import com.example.to_do_list.ui.theme.create_habit.HabitIconProvider
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.*
+import kotlin.math.roundToInt
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -52,11 +59,32 @@ fun HomeScreen(navController: NavController) {
     val viewModel: HabitViewModel = viewModel()
     val habits by viewModel.habits.collectAsState()
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
-
-    // --- DI CHUYỂN KHAI BÁO RA NGOÀI ---
     val auth = Firebase.auth
 
-    // Tải lại thói quen mỗi khi ngày được chọn hoặc người dùng thay đổi
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var habitToDelete by remember { mutableStateOf<Habit?>(null) }
+
+    var showCongratsDialog by remember { mutableStateOf(false) }
+
+    if (showDeleteDialog && habitToDelete != null) {
+        DeleteConfirmationDialog(
+            habitName = habitToDelete!!.name,
+            onConfirm = {
+                viewModel.deleteHabit(habitToDelete!!.id)
+                showDeleteDialog = false
+                habitToDelete = null
+            },
+            onDismiss = {
+                showDeleteDialog = false
+                habitToDelete = null
+            }
+        )
+    }
+
+    if (showCongratsDialog) {
+        CongratulationsDialog(onDismiss = { showCongratsDialog = false })
+    }
+
     LaunchedEffect(selectedDate, auth.currentUser) {
         viewModel.loadHabitsForDate(selectedDate)
     }
@@ -78,7 +106,7 @@ fun HomeScreen(navController: NavController) {
             )
         }
         item {
-            StatsCards(navController = navController)
+            StatsCards(navController = navController, habitCount = habits.size)
             Spacer(modifier = Modifier.height(24.dp))
         }
         item {
@@ -99,31 +127,60 @@ fun HomeScreen(navController: NavController) {
             }
         } else {
             items(habits, key = { it.id }) { habit ->
-                HabitItem(
-                    habit = habit,
-                    onCompletedToggle = {
-                        viewModel.toggleHabitCompleted(habit.id, !habit.isCompleted)
+                SwipeToDeleteContainer(
+                    key = habit.id,
+                    onDelete = {
+                        habitToDelete = habit
+                        showDeleteDialog = true
                     }
-                )
+                ) {
+                    HabitItem(
+                        habit = habit,
+                        selectedDate = selectedDate,
+                        onCompletedToggle = { isNowCompleted ->
+                            viewModel.toggleHabitCompletionForDate(habit.id, selectedDate, isNowCompleted)
+                            if (isNowCompleted) {
+                                showCongratsDialog = true
+                            }
+                        }
+                    )
+                }
                 Spacer(modifier = Modifier.height(12.dp))
             }
         }
     }
 }
 
-// --- GIAO DIỆN MỚI CHO MỘT THÓI QUEN ---
+// --- HÀM `HabitItem` ĐÃ ĐƯỢC CẬP NHẬT ---
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun HabitItem(habit: Habit, onCompletedToggle: () -> Unit) {
+fun HabitItem(
+    habit: Habit,
+    selectedDate: LocalDate,
+    onCompletedToggle: (isCompleted: Boolean) -> Unit
+) {
     val habitColor = try {
         Color(android.graphics.Color.parseColor(habit.color))
     } catch (e: IllegalArgumentException) {
         MaterialTheme.colorScheme.primary
     }
 
+    // THAY ĐỔI: Lấy icon chính xác từ provider dựa trên `iconName` đã lưu
+    val habitIcon = HabitIconProvider.getIcon(habit.iconName, null)
+
+    val isCompletedForDay = habit.completedDates.contains(selectedDate.format(DateTimeFormatter.ISO_LOCAL_DATE))
+
+    val cardContainerColor = if (isCompletedForDay) {
+        lerp(habitColor, MaterialTheme.colorScheme.surface, 0.5f)
+    } else {
+        habitColor
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = habitColor.copy(alpha = 0.2f))
+        colors = CardDefaults.cardColors(containerColor = cardContainerColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
             modifier = Modifier
@@ -132,11 +189,10 @@ fun HabitItem(habit: Habit, onCompletedToggle: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = Icons.Default.WaterDrop,
+                imageVector = habitIcon, // Sử dụng icon đã được lấy ra
                 contentDescription = "Habit Icon",
-                tint = habitColor,
-                modifier = Modifier
-                    .size(40.dp)
+                tint = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.size(40.dp)
             )
             Spacer(modifier = Modifier.width(16.dp))
 
@@ -144,13 +200,15 @@ fun HabitItem(habit: Habit, onCompletedToggle: () -> Unit) {
                 Text(
                     text = habit.name,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = 16.sp
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    fontSize = 16.sp,
+                    textDecoration = if (isCompletedForDay) TextDecoration.LineThrough else TextDecoration.None
                 )
                 Text(
                     text = habit.reminderTime ?: "No Time Selected",
                     fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
+                    textDecoration = if (isCompletedForDay) TextDecoration.LineThrough else TextDecoration.None
                 )
             }
             Spacer(modifier = Modifier.width(16.dp))
@@ -159,21 +217,196 @@ fun HabitItem(habit: Habit, onCompletedToggle: () -> Unit) {
                 modifier = Modifier
                     .size(28.dp)
                     .clip(CircleShape)
-                    .border(2.dp, habitColor, CircleShape)
-                    .clickable { onCompletedToggle() },
+                    .background(
+                        color = if (isCompletedForDay) Color.White else Color.Transparent,
+                        shape = CircleShape
+                    )
+                    .border(2.dp, MaterialTheme.colorScheme.onPrimary, CircleShape)
+                    .clickable { onCompletedToggle(!isCompletedForDay) },
                 contentAlignment = Alignment.Center
             ) {
-                if (habit.isCompleted) {
-                    Box(
-                        modifier = Modifier
-                            .size(18.dp)
-                            .clip(CircleShape)
-                            .background(habitColor)
+                if (isCompletedForDay) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = "Completed",
+                        tint = habitColor,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
         }
     }
+}
+
+
+// --- CÁC HÀM KHÁC KHÔNG THAY ĐỔI ---
+
+@Composable
+fun CongratulationsDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(28.dp),
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text("🎉", fontSize = 48.sp)
+                Text(
+                    text = "Chúc mừng",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 22.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "Của bạn Habit đã xong!!",
+                    fontSize = 16.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                shape = RoundedCornerShape(50)
+            ) {
+                Text("Hiểu rồi", fontWeight = FontWeight.Bold)
+            }
+        }
+    )
+}
+
+@Composable
+fun SwipeToDeleteContainer(
+    key: Any,
+    onDelete: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    var offsetX by remember(key) { mutableStateOf(0f) }
+    val coroutineScope = rememberCoroutineScope()
+    val deleteButtonWidth = 80.dp
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+    ) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .width(deleteButtonWidth)
+                .fillMaxHeight(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                modifier = Modifier.clickable(onClick = onDelete),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Xóa",
+                    tint = AccentRed
+                )
+                Text("Delete", color = AccentRed, fontSize = 12.sp)
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset { IntOffset(offsetX.roundToInt(), 0) }
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            coroutineScope.launch {
+                                val deleteWidthPx = deleteButtonWidth.toPx()
+                                if (offsetX < -deleteWidthPx / 2) {
+                                    offsetX = -deleteWidthPx
+                                } else {
+                                    offsetX = 0f
+                                }
+                            }
+                        },
+                        onHorizontalDrag = { change, dragAmount ->
+                            val deleteWidthPx = deleteButtonWidth.toPx()
+                            val newOffsetX = (offsetX + dragAmount).coerceIn(-deleteWidthPx, 0f)
+                            offsetX = newOffsetX
+                            change.consume()
+                        }
+                    )
+                }
+        ) {
+            content()
+        }
+    }
+}
+
+@Composable
+fun DeleteConfirmationDialog(
+    habitName: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(28.dp),
+        title = {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = Icons.Default.DeleteOutline,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(32.dp)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Xóa thói quen", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            }
+        },
+        text = {
+            Text(
+                text = "Bạn có chắc chắn muốn xóa thói quen?",
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = AccentRed),
+                shape = RoundedCornerShape(50)
+            ) {
+                Text("Đúng", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                shape = RoundedCornerShape(50),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+            ) {
+                Text("Không", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+            }
+        }
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -186,10 +419,9 @@ fun FilterChips(habitCount: Int) {
     }
 }
 
-// ... (Các hàm còn lại giữ nguyên)
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun StatsCards(navController: NavController) {
+fun StatsCards(navController: NavController, habitCount: Int) {
     var userName by remember { mutableStateOf("Hygge") }
     var showEditNameDialog by remember { mutableStateOf(false) }
 
@@ -203,9 +435,9 @@ fun StatsCards(navController: NavController) {
 
     val currentDateTextInEnglish = remember {
         val now = LocalDate.now()
+        val dayOfWeek = now.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
         val dayOfMonth = now.dayOfMonth
         val daySuffix = getDayOfMonthSuffix(dayOfMonth)
-        val dayOfWeek = now.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
         val month = now.month.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
         "$dayOfWeek ${dayOfMonth}${daySuffix}, $month"
     }
@@ -269,7 +501,7 @@ fun StatsCards(navController: NavController) {
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("0", fontWeight = FontWeight.Bold, fontSize = 24.sp, color = MaterialTheme.colorScheme.onPrimary)
+                    Text(habitCount.toString(), fontWeight = FontWeight.Bold, fontSize = 24.sp, color = MaterialTheme.colorScheme.onPrimary)
                     Text("Thói quen", fontSize = 12.sp, color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f))
                 }
                 Box(
@@ -339,16 +571,23 @@ data class CalendarDate(val dayOfMonth: Int, val dayOfWeek: String, val date: Lo
 @Composable
 fun WeekCalendar(selectedDate: LocalDate, onDateSelected: (LocalDate) -> Unit) {
     val today = LocalDate.now()
+    val todayIndex = 365
+    val scrollIndex = (todayIndex - 2).coerceAtLeast(0)
+
     val lazyListState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
-    val dates = (0..365).map {
+    val dates = (-365..365).map {
         val date = today.plusDays(it.toLong())
         CalendarDate(
             dayOfMonth = date.dayOfMonth,
             dayOfWeek = date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale("vi")).replaceFirstChar { it.uppercase() },
             date = date
         )
+    }
+
+    LaunchedEffect(Unit) {
+        lazyListState.scrollToItem(scrollIndex)
     }
 
     Box(
@@ -359,7 +598,7 @@ fun WeekCalendar(selectedDate: LocalDate, onDateSelected: (LocalDate) -> Unit) {
             state = lazyListState,
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(end = 120.dp)
+            contentPadding = PaddingValues(horizontal = 16.dp)
         ) {
             itemsIndexed(items = dates, key = { _, date -> date.date }) { index, date ->
                 DateItem(
@@ -391,7 +630,7 @@ fun WeekCalendar(selectedDate: LocalDate, onDateSelected: (LocalDate) -> Unit) {
                     .clickable {
                         onDateSelected(today)
                         coroutineScope.launch {
-                            lazyListState.animateScrollToItem(index = 0)
+                            lazyListState.animateScrollToItem(index = scrollIndex)
                         }
                     }
                     .padding(horizontal = 16.dp),
@@ -413,6 +652,7 @@ fun WeekCalendar(selectedDate: LocalDate, onDateSelected: (LocalDate) -> Unit) {
         }
     }
 }
+
 
 @Composable
 fun DateItem(date: CalendarDate, isSelected: Boolean, onDateClick: (LocalDate) -> Unit) {

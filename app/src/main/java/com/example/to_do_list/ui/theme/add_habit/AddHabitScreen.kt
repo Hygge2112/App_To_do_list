@@ -24,27 +24,46 @@ import androidx.navigation.NavController
 import com.example.to_do_list.navigation.Routes
 import com.example.to_do_list.ui.theme.CardDarkBackground
 
+// --- NGUỒN QUẢN LÝ ICON TẬP TRUNG ---
+object HabitIconProvider {
+    val categories = listOf(
+        "Tập trung", "Công việc", "Riêng tư", "Mua sắm", "Tài chính",
+        "Gia đình", "Xã hội", "Cuộc hẹn", "Du lịch", "Hóa đơn & Thanh toán",
+        "Học hỏi", "Tâm linh", "Sức khỏe & Thể hình", "Tự chăm sóc"
+    )
+
+    private val iconMap = mapOf(
+        "Tập trung" to Icons.Default.Psychology,
+        "Công việc" to Icons.Default.Work,
+        "Riêng tư" to Icons.Default.Lock,
+        "Mua sắm" to Icons.Default.ShoppingCart,
+        "Tài chính" to Icons.Default.AccountBalanceWallet,
+        "Gia đình" to Icons.Default.People,
+        "Xã hội" to Icons.Default.Group,
+        "Cuộc hẹn" to Icons.Default.Event,
+        "Du lịch" to Icons.Default.Flight,
+        "Hóa đơn & Thanh toán" to Icons.Default.Receipt,
+        "Học hỏi" to Icons.Default.School,
+        "Tâm linh" to Icons.Default.SelfImprovement,
+        "Sức khỏe & Thể hình" to Icons.Default.FitnessCenter,
+        "Tự chăm sóc" to Icons.Default.Spa
+    )
+
+    fun getIcon(categoryName: String?): ImageVector {
+        return iconMap[categoryName] ?: Icons.Default.EditNote // Icon mặc định
+    }
+}
+
+
 data class HabitCategory(
     val name: String,
     val icon: ImageVector
 )
 
-private val habitCategories = listOf(
-    HabitCategory("Tập trung", Icons.Default.Psychology),
-    HabitCategory("Công việc", Icons.Default.Work),
-    HabitCategory("Riêng tư", Icons.Default.Lock),
-    HabitCategory("Mua sắm", Icons.Default.ShoppingCart),
-    HabitCategory("Tài chính", Icons.Default.AccountBalanceWallet),
-    HabitCategory("Gia đình", Icons.Default.People),
-    HabitCategory("Xã hội", Icons.Default.Group),
-    HabitCategory("Cuộc hẹn", Icons.Default.Event),
-    HabitCategory("Du lịch", Icons.Default.Flight),
-    HabitCategory("Hóa đơn & Thanh toán", Icons.Default.Receipt),
-    HabitCategory("Học hỏi", Icons.Default.School),
-    HabitCategory("Tâm linh", Icons.Default.SelfImprovement),
-    HabitCategory("Sức khỏe & Thể hình", Icons.Default.FitnessCenter),
-    HabitCategory("Tự chăm sóc", Icons.Default.Spa)
-)
+// Dùng provider để tạo danh sách, đảm bảo dữ liệu luôn đồng bộ
+private val habitCategories = HabitIconProvider.categories.map { categoryName ->
+    HabitCategory(categoryName, HabitIconProvider.getIcon(categoryName))
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -113,9 +132,11 @@ fun CreateNewHabitButton(navController: NavController) {
             .clip(RoundedCornerShape(50))
             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
             .clickable {
-                // --- THAY ĐỔI Ở ĐÂY: Điều hướng đến route CREATE_HABIT mà không có tham số ---
-                // Route này sẽ trở thành "create_habit?habitName=null"
-                val route = Routes.CREATE_HABIT.replace("?habitName={habitName}", "")
+                // Điều hướng đến màn hình tạo thói quen mà không có tham số
+                // categoryName sẽ là null, CreateHabitScreen sẽ dùng icon mặc định
+                val route = Routes.CREATE_HABIT
+                    .replace("?habitName={habitName}", "")
+                    .replace("&categoryName={categoryName}", "")
                 navController.navigate(route)
             }
             .padding(horizontal = 24.dp, vertical = 20.dp),

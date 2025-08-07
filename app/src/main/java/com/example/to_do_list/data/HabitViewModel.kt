@@ -6,6 +6,7 @@ import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.ktx.auth
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.firestore.ktx.toObject
 import com.google.firebase.ktx.Firebase
@@ -28,7 +29,6 @@ class HabitViewModel : ViewModel() {
     val habits = _habits.asStateFlow()
 
     init {
-        // Chỉ tải thói quen nếu người dùng đã đăng nhập
         if (auth.currentUser != null) {
             loadHabitsForDate(LocalDate.now())
         }
@@ -38,11 +38,14 @@ class HabitViewModel : ViewModel() {
         val userId = auth.currentUser?.uid
         if (userId == null) {
             Log.d(TAG, "loadHabitsForDate: Người dùng chưa đăng nhập, không tải dữ liệu.")
+            _habits.value = emptyList()
             return
         }
 
         val dateString = date.format(DateTimeFormatter.ISO_LOCAL_DATE)
 
+        // Listener này vẫn đúng, nó tải các thói quen được LÊN LỊCH cho ngày đã chọn.
+        // Việc kiểm tra hoàn thành sẽ được thực hiện ở UI.
         db.collection("habits")
             .whereEqualTo("userId", userId)
             .whereArrayContains("repetitionDates", dateString)
@@ -71,35 +74,46 @@ class HabitViewModel : ViewModel() {
             Log.e(TAG, "LỖI: Người dùng chưa đăng nhập, không thể thêm thói quen.")
             return
         }
-
-        // --- LOG MỚI ĐỂ GỠ LỖI ---
-        Log.d(TAG, "Chuẩn bị lưu thói quen: $habit")
-        Log.d(TAG, "UserID hiện tại: ${currentUser.uid}")
-        // -------------------------
-
         viewModelScope.launch {
             try {
                 db.collection("habits")
                     .add(habit.copy(userId = currentUser.uid))
                     .await()
-
                 Log.d(TAG, "THÀNH CÔNG: Đã thêm thói quen '${habit.name}' vào Firestore.")
                 onComplete()
             } catch (e: Exception) {
-                // In ra lỗi chi tiết để gỡ lỗi
                 Log.e(TAG, "LỖI KHI THÊM THÓI QUEN: Thao tác Firestore thất bại.", e)
             }
         }
     }
 
-    fun toggleHabitCompleted(habitId: String, isCompleted: Boolean) {
+    // THAY ĐỔI: Thay thế hàm `toggleHabitCompleted` cũ bằng hàm mới này.
+    // Hàm này sẽ thêm hoặc xóa một ngày cụ thể khỏi danh sách hoàn thành.
+    fun toggleHabitCompletionForDate(habitId: String, date: LocalDate, isCompleted: Boolean) {
+        val dateString = date.format(DateTimeFormatter.ISO_LOCAL_DATE)
         viewModelScope.launch {
             try {
-                db.collection("habits").document(habitId)
-                    .update("completed", isCompleted)
-                    .await()
+                val habitRef = db.collection("habits").document(habitId)
+                val updateValue = if (isCompleted) {
+                    FieldValue.arrayUnion(dateString) // Thêm ngày vào mảng
+                } else {
+                    FieldValue.arrayRemove(dateString) // Xóa ngày khỏi mảng
+                }
+                habitRef.update("completedDates", updateValue).await()
+                Log.d(TAG, "Cập nhật trạng thái cho habit $habitId vào ngày $dateString thành công.")
             } catch (e: Exception) {
                 Log.e(TAG, "Lỗi khi cập nhật trạng thái thói quen: ", e)
+            }
+        }
+    }
+
+    fun deleteHabit(habitId: String) {
+        viewModelScope.launch {
+            try {
+                db.collection("habits").document(habitId).delete().await()
+                Log.d(TAG, "Đã xóa thành công thói quen: $habitId")
+            } catch (e: Exception) {
+                Log.e(TAG, "Lỗi khi xóa thói quen: ", e)
             }
         }
     }

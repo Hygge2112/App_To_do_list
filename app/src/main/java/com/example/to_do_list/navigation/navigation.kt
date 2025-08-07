@@ -24,7 +24,8 @@ object Routes {
     const val MAIN_SCREEN = "main_screen"
     const val ADD_HABIT = "add_habit"
     const val HABIT_DETAIL = "habit_detail/{categoryName}"
-    const val CREATE_HABIT = "create_habit?habitName={habitName}"
+    // THAY ĐỔI 1: Thêm `iconName` vào route để có thể truyền đi
+    const val CREATE_HABIT = "create_habit?habitName={habitName}&categoryName={categoryName}&iconName={iconName}"
 }
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -45,7 +46,6 @@ fun AppNavigation(startDestination: String) {
                 navController = navController,
                 onLoginSuccess = {
                     navController.navigate(Routes.MAIN_SCREEN) {
-                        // Xóa tất cả các màn hình trước đó khỏi back stack
                         popUpTo(navController.graph.startDestinationId) { inclusive = true }
                     }
                 }
@@ -57,7 +57,6 @@ fun AppNavigation(startDestination: String) {
                 navController = navController,
                 onSignUpSuccess = {
                     navController.navigate(Routes.MAIN_SCREEN) {
-                        // Xóa tất cả các màn hình trước đó khỏi back stack
                         popUpTo(navController.graph.startDestinationId) { inclusive = true }
                     }
                 }
@@ -78,16 +77,37 @@ fun AppNavigation(startDestination: String) {
             HabitDetailScreen(navController = navController, categoryName = categoryName)
         }
 
+        // THAY ĐỔI 2: Cập nhật composable để nhận và xử lý `iconName`
         composable(
             route = Routes.CREATE_HABIT,
-            arguments = listOf(navArgument("habitName") {
-                type = NavType.StringType
-                nullable = true
-                defaultValue = null
-            })
+            arguments = listOf(
+                navArgument("habitName") {
+                    type = NavType.StringType
+                    nullable = true
+                },
+                navArgument("categoryName") {
+                    type = NavType.StringType
+                    nullable = true
+                },
+                // Thêm argument cho iconName
+                navArgument("iconName") {
+                    type = NavType.StringType
+                    nullable = true
+                }
+            )
         ) { backStackEntry ->
+            // Lấy tất cả các giá trị từ arguments
             val habitName = backStackEntry.arguments?.getString("habitName")
-            CreateHabitScreen(navController = navController, habitName = habitName)
+            val categoryName = backStackEntry.arguments?.getString("categoryName")
+            val iconName = backStackEntry.arguments?.getString("iconName")
+
+            // Truyền tất cả giá trị vào màn hình CreateHabitScreen
+            CreateHabitScreen(
+                navController = navController,
+                habitName = habitName,
+                categoryName = categoryName,
+                iconName = iconName
+            )
         }
     }
 }
