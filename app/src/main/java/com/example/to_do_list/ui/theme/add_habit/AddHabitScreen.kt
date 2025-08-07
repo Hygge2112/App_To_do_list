@@ -132,12 +132,10 @@ fun CreateNewHabitButton(navController: NavController) {
             .clip(RoundedCornerShape(50))
             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
             .clickable {
-                // Điều hướng đến màn hình tạo thói quen mà không có tham số
-                // categoryName sẽ là null, CreateHabitScreen sẽ dùng icon mặc định
-                val route = Routes.CREATE_HABIT
-                    .replace("?habitName={habitName}", "")
-                    .replace("&categoryName={categoryName}", "")
-                navController.navigate(route)
+                // SỬA LỖI Ở ĐÂY:
+                // Điều hướng thẳng đến route gốc.
+                // Các tham số không được truyền sẽ tự động là null.
+                navController.navigate(Routes.CREATE_HABIT)
             }
             .padding(horizontal = 24.dp, vertical = 20.dp),
         verticalAlignment = Alignment.CenterVertically

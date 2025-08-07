@@ -48,17 +48,17 @@ import androidx.compose.foundation.lazy.items as foundationLazyItems
 
 // --- TRUNG TÂM QUẢN LÝ ICON ---
 object HabitIconProvider {
-    // Bản đồ chứa TẤT CẢ các icon có thể sử dụng, được định danh bằng một chuỗi duy nhất.
+    // Bản đồ chứa TẤT CẢ các icon có thể sử dụng
     private val iconMap: Map<String, ImageVector> = mapOf(
-        // Icons cho Danh mục
+        // Icons cho Danh mục chính
         "Psychology" to Icons.Default.Psychology, "Work" to Icons.Default.Work, "Lock" to Icons.Default.Lock,
         "ShoppingCart" to Icons.Default.ShoppingCart, "AccountBalanceWallet" to Icons.Default.AccountBalanceWallet,
         "People" to Icons.Default.People, "Group" to Icons.Default.Group, "Event" to Icons.Default.Event,
         "Flight" to Icons.Default.Flight, "Receipt" to Icons.Default.Receipt, "School" to Icons.Default.School,
         "SelfImprovement" to Icons.Default.SelfImprovement, "FitnessCenter" to Icons.Default.FitnessCenter,
-        "Spa" to Icons.Default.Spa, "EditNote" to Icons.Default.EditNote,
+        "Spa" to Icons.Default.Spa, "EditNote" to Icons.Default.EditNote, "Lightbulb" to Icons.Default.Lightbulb,
 
-        // Icons cho các Gợi ý cụ thể
+        // Icons cho các Gợi ý cụ thể (ĐÃ BỔ SUNG)
         "Task" to Icons.Default.Task, "Bedtime" to Icons.Default.Bedtime, "PriorityHigh" to Icons.Default.PriorityHigh,
         "FlightTakeoff" to Icons.Default.FlightTakeoff, "Description" to Icons.Default.Description,
         "Groups" to Icons.Default.Groups, "ContactPage" to Icons.Default.ContactPage, "ReceiptLong" to Icons.Default.ReceiptLong,
@@ -68,36 +68,57 @@ object HabitIconProvider {
         "Restaurant" to Icons.Default.Restaurant, "Favorite" to Icons.Default.Favorite, "Book" to Icons.Default.Book,
         "Movie" to Icons.Default.Movie, "PhotoLibrary" to Icons.Default.PhotoLibrary, "Dashboard" to Icons.Default.Dashboard,
         "VideogameAsset" to Icons.Default.VideogameAsset, "VolunteerActivism" to Icons.Default.VolunteerActivism,
-        "Mail" to Icons.Default.Mail, "CleaningServices" to Icons.Default.CleaningServices
-        // Thêm các icon khác nếu cần
+        "Mail" to Icons.Default.Mail, "CleaningServices" to Icons.Default.CleaningServices, "ListAlt" to Icons.Default.ListAlt,
+        "LocalGroceryStore" to Icons.Default.LocalGroceryStore, "Inventory" to Icons.Default.Inventory,
+        "Savings" to Icons.Default.Savings, "CompareArrows" to Icons.Default.CompareArrows,
+        "FavoriteBorder" to Icons.Default.FavoriteBorder, "ConfirmationNumber" to Icons.Default.ConfirmationNumber,
+        "ShoppingBasket" to Icons.Default.ShoppingBasket, "TrackChanges" to Icons.Default.TrackChanges,
+        "AccountBalance" to Icons.Default.AccountBalance, "CreditCard" to Icons.Default.CreditCard,
+        "RequestQuote" to Icons.Default.RequestQuote, "Percent" to Icons.Default.Percent, "Policy" to Icons.Default.Policy,
+        "Chair" to Icons.Default.Chair, "Cancel" to Icons.Default.Cancel, "CreditScore" to Icons.Default.CreditScore,
+        "Emergency" to Icons.Default.Emergency, "Casino" to Icons.Default.Casino, "Celebration" to Icons.Default.Celebration,
+        "PhotoAlbum" to Icons.Default.PhotoAlbum, "SoupKitchen" to Icons.Default.SoupKitchen, "Park" to Icons.Default.Park,
+        "DinnerDining" to Icons.Default.DinnerDining, "ConnectWithoutContact" to Icons.Default.ConnectWithoutContact,
+        "CardGiftcard" to Icons.Default.CardGiftcard, "Deck" to Icons.Default.Deck,
+        "MedicalServices" to Icons.Default.MedicalServices, "Pets" to Icons.Default.Pets,
+        "MedicalInformation" to Icons.Default.MedicalInformation, "EventAvailable" to Icons.Default.EventAvailable,
+        "EditCalendar" to Icons.Default.EditCalendar, "Science" to Icons.Default.Science, "Explore" to Icons.Default.Explore,
+        "Flag" to Icons.Default.Flag, "Commute" to Icons.Default.Commute, "Hotel" to Icons.Default.Hotel,
+        "Luggage" to Icons.Default.Luggage, "AttachMoney" to Icons.Default.AttachMoney, "Map" to Icons.Default.Map,
+        "HealthAndSafety" to Icons.Default.HealthAndSafety, "Hiking" to Icons.Default.Hiking, "WbSunny" to Icons.Default.WbSunny,
+        "PhotoCamera" to Icons.Default.PhotoCamera, "RestaurantMenu" to Icons.Default.RestaurantMenu,
+        "WaterDrop" to Icons.Default.WaterDrop, "Wifi" to Icons.Default.Wifi, "Home" to Icons.Default.Home,
+        "Schedule" to Icons.Default.Schedule, "History" to Icons.Default.History, "LaptopChromebook" to Icons.Default.LaptopChromebook,
+        "Translate" to Icons.Default.Translate, "CoPresent" to Icons.Default.CoPresent, "Podcasts" to Icons.Default.Podcasts,
+        "Search" to Icons.Default.Search, "Quiz" to Icons.Default.Quiz, "Code" to Icons.Default.Code,
+        "Forest" to Icons.Default.Forest, "TravelExplore" to Icons.Default.TravelExplore,
+        "FilterCenterFocus" to Icons.Default.FilterCenterFocus, "NoCell" to Icons.Default.NoCell,
+        "CleanHands" to Icons.Default.CleanHands, "MonitorWeight" to Icons.Default.MonitorWeight,
+        "DirectionsWalk" to Icons.Default.DirectionsWalk, "NoFood" to Icons.Default.NoFood, "NoDrinks" to Icons.Default.NoDrinks,
+        "Air" to Icons.Default.Air, "Grass" to Icons.Default.Grass, "Eco" to Icons.Default.Eco,
+        "Bathtub" to Icons.Default.Bathtub, "Shower" to Icons.Default.Shower, "SmokeFree" to Icons.Default.SmokeFree,
+        "ContentCut" to Icons.Default.ContentCut, "ScreenLockPortrait" to Icons.Default.ScreenLockPortrait
     )
 
-    // Bản đồ ánh xạ từ Tên Danh mục (tiếng Việt) sang Định danh Icon (tiếng Anh)
     private val categoryToIconKeyMap: Map<String, String> = mapOf(
-        "Tập trung" to "Psychology", "Công việc" to "Work", "Riêng tư" to "Lock", "Mua sắm" to "ShoppingCart",
+        "Tập trung" to "Lightbulb", "Công việc" to "Work", "Riêng tư" to "Lock", "Mua sắm" to "ShoppingCart",
         "Tài chính" to "AccountBalanceWallet", "Gia đình" to "People", "Xã hội" to "Group", "Cuộc hẹn" to "Event",
         "Du lịch" to "Flight", "Hóa đơn & Thanh toán" to "Receipt", "Học hỏi" to "School",
         "Tâm linh" to "SelfImprovement", "Sức khỏe & Thể hình" to "FitnessCenter", "Tự chăm sóc" to "Spa"
     )
 
-    /**
-     * Hàm chính để lấy icon.
-     * Ưu tiên 1: Lấy theo tên icon cụ thể.
-     * Ưu tiên 2: Nếu không có, lấy theo icon của danh mục.
-     * Ưu tiên 3: Nếu vẫn không có, trả về icon mặc định.
-     */
     fun getIcon(iconName: String?, categoryName: String?): ImageVector {
         iconName?.let { name -> iconMap[name]?.let { return it } }
         categoryName?.let { name -> categoryToIconKeyMap[name]?.let { key -> iconMap[key]?.let { return it } } }
         return Icons.Default.EditNote
     }
 
-    // Hàm mới để lấy tên định danh của icon để lưu vào DB
     fun getIconName(iconName: String?, categoryName: String?): String {
         return iconName ?: categoryToIconKeyMap[categoryName] ?: "EditNote"
     }
 }
 
+// ... (Phần còn lại của tệp giữ nguyên)
 @RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
