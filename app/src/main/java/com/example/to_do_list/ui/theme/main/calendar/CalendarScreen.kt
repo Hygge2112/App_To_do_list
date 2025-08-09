@@ -1,5 +1,7 @@
 package com.example.to_do_list.ui.theme.main.calendar
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,7 +13,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.*
@@ -24,77 +25,104 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.to_do_list.data.Habit
+import com.example.to_do_list.data.HabitUiState
+import com.example.to_do_list.data.HabitViewModel
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
-import kotlin.random.Random
+import java.time.format.DateTimeFormatter
 
-// Dữ liệu cho một sự kiện/nhiệm vụ
-data class Event(val id: Int, val date: LocalDate, val title: String, val color: Color)
-
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun CalendarScreen() {
     // === TRẠNG THÁI (STATE) ===
-    // 1. Quản lý tháng đang hiển thị
-    val currentMonth = remember { mutableStateOf(YearMonth.of(2025, 8)) }
-    // 2. Quản lý ngày đang được chọn, mặc định là ngày hôm nay
-    var selectedDate by remember { mutableStateOf(LocalDate.of(2025, 8, 8)) }
-    // 3. Quản lý danh sách các sự kiện. Dùng mutableStateListOf để giao diện tự cập nhật khi thêm/xóa.
-    val events = remember { mutableStateListOf<Event>() }
+    // 1. Lấy dữ liệu từ HabitViewModel
+    val viewModel: HabitViewModel = viewModel()
+    val habitUiState by viewModel.uiState.collectAsState()
+
+    // 2. Quản lý tháng và ngày đang được chọn
+    var currentMonth by remember { mutableStateOf(YearMonth.now()) }
+    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        // --- Giao diện Lịch ---
+        // --- Header Lịch ---
         CalendarHeader(
-            month = currentMonth.value,
-            onPrevMonth = { currentMonth.value = currentMonth.value.minusMonths(1) },
-            onNextMonth = { currentMonth.value = currentMonth.value.plusMonths(1) }
+            month = currentMonth,
+            onPrevMonth = { currentMonth = currentMonth.minusMonths(1) },
+            onNextMonth = { currentMonth = currentMonth.plusMonths(1) }
         )
         MonthHeader()
-        CalendarGrid(
-            yearMonth = currentMonth.value,
-            events = events,
-            selectedDate = selectedDate,
-            onDateSelected = { date ->
-                selectedDate = date // Cập nhật ngày được chọn khi người dùng nhấn vào
+
+        // --- Xử lý các trạng thái của UI (Loading, Error, Success) ---
+        when (val state = habitUiState) {
+            is HabitUiState.Loading -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
             }
-        )
+            is HabitUiState.Error -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Lỗi: ${state.message}", color = MaterialTheme.colorScheme.error)
+                }
+            }
+            is HabitUiState.Success -> {
+                // 3. Nhóm các thói quen theo ngày để dễ dàng tra cứu và hiển thị
+                val habitsByDate = remember(state.habits) {
+                    groupHabitsByDate(state.habits)
+                }
 
-        Spacer(modifier = Modifier.height(16.dp))
+                // --- Lưới Lịch ---
+                CalendarGrid(
+                    yearMonth = currentMonth,
+                    habitsByDate = habitsByDate,
+                    selectedDate = selectedDate,
+                    onDateSelected = { date -> selectedDate = date }
+                )
 
-        // --- Giao diện Danh sách công việc ---
-        TaskList(
-            selectedDate = selectedDate,
-            events = events.filter { it.date == selectedDate } // Lọc công việc theo ngày đã chọn
-        )
+                Spacer(modifier = Modifier.height(16.dp))
 
-        // --- Nút Thêm công việc (Ví dụ) ---
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-            FloatingActionButton(
-                onClick = {
-                    // Thêm một sự kiện mới vào danh sách cho ngày đang được chọn
-                    val newEvent = Event(
-                        id = events.size + 1,
-                        date = selectedDate,
-                        title = "Công việc mới ${Random.nextInt(1, 100)}",
-                        color = Color(Random.nextFloat(), Random.nextFloat(), Random.nextFloat())
-                    )
-                    events.add(newEvent)
-                },
-                modifier = Modifier.padding(16.dp)
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Thêm công việc")
+                // --- Danh sách công việc cho ngày đã chọn ---
+                TaskList(
+                    selectedDate = selectedDate,
+                    habits = habitsByDate[selectedDate] ?: emptyList()
+                )
             }
         }
     }
 }
 
-// Composable cho danh sách công việc
+/**
+ * Nhóm danh sách các thói quen theo từng ngày dựa trên `repetitionDates`.
+ * Điều này giúp tăng hiệu suất bằng cách không phải lặp qua toàn bộ danh sách thói quen cho mỗi ô ngày.
+ * @param habits Danh sách tất cả các thói quen từ ViewModel.
+ * @return Một Map với khóa là `LocalDate` và giá trị là danh sách các thói quen vào ngày đó.
+ */
+@RequiresApi(Build.VERSION_CODES.O)
+private fun groupHabitsByDate(habits: List<Habit>): Map<LocalDate, List<Habit>> {
+    val habitsByDate = mutableMapOf<LocalDate, MutableList<Habit>>()
+    val formatter = DateTimeFormatter.ISO_LOCAL_DATE
+    habits.forEach { habit ->
+        habit.repetitionDates.forEach { dateString ->
+            try {
+                val date = LocalDate.parse(dateString, formatter)
+                habitsByDate.getOrPut(date) { mutableListOf() }.add(habit)
+            } catch (e: Exception) {
+                // Bỏ qua nếu định dạng ngày bị lỗi
+            }
+        }
+    }
+    return habitsByDate
+}
+
+// Composable hiển thị danh sách các công việc (đã cập nhật để dùng `Habit`)
 @Composable
-fun TaskList(selectedDate: LocalDate, events: List<Event>) {
+fun TaskList(selectedDate: LocalDate, habits: List<Habit>) {
     Column(modifier = Modifier.padding(horizontal = 16.dp)) {
         Text(
             text = "Công việc ngày ${selectedDate.dayOfMonth}/${selectedDate.monthValue}",
@@ -102,21 +130,26 @@ fun TaskList(selectedDate: LocalDate, events: List<Event>) {
             fontWeight = FontWeight.Bold
         )
         Spacer(modifier = Modifier.height(8.dp))
-        if (events.isEmpty()) {
+        if (habits.isEmpty()) {
             Text("Không có công việc nào cho ngày này.")
         } else {
             LazyColumn {
-                items(events) { event ->
-                    TaskItem(event)
+                items(habits) { habit ->
+                    HabitTaskItem(habit)
                 }
             }
         }
     }
 }
 
-// Composable cho một mục công việc
+// Composable cho một mục công việc trong danh sách (đã cập nhật để dùng `Habit`)
 @Composable
-fun TaskItem(event: Event) {
+fun HabitTaskItem(habit: Habit) {
+    val habitColor = try {
+        Color(android.graphics.Color.parseColor(habit.color))
+    } catch (e: IllegalArgumentException) {
+        MaterialTheme.colorScheme.primary // Màu mặc định nếu có lỗi
+    }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.padding(vertical = 4.dp)
@@ -124,30 +157,30 @@ fun TaskItem(event: Event) {
         Box(
             modifier = Modifier
                 .size(12.dp)
-                .background(event.color, CircleShape)
+                .background(habitColor, CircleShape)
         )
         Spacer(modifier = Modifier.width(8.dp))
-        Text(text = event.title, style = MaterialTheme.typography.bodyLarge)
+        Text(text = habit.name, style = MaterialTheme.typography.bodyLarge)
     }
 }
 
-
 // --- Các Composable của Lịch (đã cập nhật) ---
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun CalendarGrid(
     yearMonth: YearMonth,
-    events: List<Event>,
+    habitsByDate: Map<LocalDate, List<Habit>>,
     selectedDate: LocalDate,
-    onDateSelected: (LocalDate) -> Unit // Callback để thông báo ngày được chọn
+    onDateSelected: (LocalDate) -> Unit
 ) {
     val daysInMonth = yearMonth.lengthOfMonth()
     val firstOfMonth = yearMonth.atDay(1)
-    val dayOfWeekOffset = (firstOfMonth.dayOfWeek.value % 7)
+    val dayOfWeekOffset = (firstOfMonth.dayOfWeek.value % 7) // CN là 0, T2 là 1..
 
     val calendarDays = mutableListOf<LocalDate?>()
     for (i in 0 until dayOfWeekOffset) {
-        calendarDays.add(null)
+        calendarDays.add(null) // Thêm các ô trống cho đầu tháng
     }
     for (day in 1..daysInMonth) {
         calendarDays.add(yearMonth.atDay(day))
@@ -155,47 +188,48 @@ fun CalendarGrid(
 
     LazyVerticalGrid(
         columns = GridCells.Fixed(7),
-        modifier = Modifier.padding(horizontal = 4.dp),
-        userScrollEnabled = false // Vô hiệu hóa cuộn cho lưới
+        modifier = Modifier.padding(horizontal = 4.dp).heightIn(max = 350.dp),
+        userScrollEnabled = false
     ) {
         items(calendarDays) { date ->
             if (date != null) {
                 DayCell(
                     date = date,
                     isSelected = date == selectedDate,
-                    events = events.filter { it.date == date },
+                    habits = habitsByDate[date] ?: emptyList(), // Lấy danh sách thói quen cho ngày này
                     onClick = { onDateSelected(date) }
                 )
             } else {
-                Box(modifier = Modifier.aspectRatio(1f))
+                Box(modifier = Modifier.aspectRatio(1f)) // Ô trống
             }
         }
     }
 }
 
+// Composable cho từng ô ngày trong lịch (đã cập nhật)
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun DayCell(
     date: LocalDate,
     isSelected: Boolean,
-    events: List<Event>,
+    habits: List<Habit>, // Nhận danh sách thói quen cho ngày này
     onClick: () -> Unit
 ) {
     val isSunday = date.dayOfWeek == DayOfWeek.SUNDAY
+    val isToday = date == LocalDate.now()
 
     Box(
         modifier = Modifier
             .aspectRatio(1f)
             .padding(2.dp)
             .clip(MaterialTheme.shapes.medium)
-            .clickable(onClick = onClick) // Thêm hành động nhấn vào
-            .background(
-                if (isSelected) Color(0xFFC8E6C9) else Color(0xFFE0F2F1)
-            )
+            .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
             .border(
-                width = if (isSelected) 1.5.dp else 0.dp,
-                color = if (isSelected) Color(0xFF14B8A6) else Color.Transparent,
+                width = if (isToday) 1.5.dp else 0.dp,
+                color = if (isToday) MaterialTheme.colorScheme.primary else Color.Transparent,
                 shape = MaterialTheme.shapes.medium
-            ),
+            )
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -204,22 +238,28 @@ fun DayCell(
         ) {
             Text(
                 text = date.dayOfMonth.toString(),
-                color = if (isSunday) Color(0xFFF97316) else Color.Black,
+                color = if (isSunday) Color(0xFFF97316) else MaterialTheme.colorScheme.onBackground,
                 fontSize = 16.sp,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                fontWeight = if (isSelected || isToday) FontWeight.Bold else FontWeight.Normal
             )
-            // Chỉ hiển thị dấu chấm nếu có sự kiện
-            if (events.isNotEmpty()) {
+            // Hiển thị các dấu chấm nếu có thói quen
+            if (habits.isNotEmpty()) {
                 Row(
                     modifier = Modifier.padding(top = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
-                    events.take(3).forEach { event ->
+                    // Lấy tối đa 3 màu sắc khác nhau từ các thói quen để làm dấu chấm
+                    habits.map { it.color }.distinct().take(3).forEach { colorString ->
+                        val dotColor = try {
+                            Color(android.graphics.Color.parseColor(colorString))
+                        } catch (e: Exception) {
+                            MaterialTheme.colorScheme.primary // Màu mặc định nếu lỗi
+                        }
                         Box(
                             modifier = Modifier
                                 .size(5.dp)
                                 .clip(CircleShape)
-                                .background(event.color)
+                                .background(dotColor)
                         )
                     }
                 }
@@ -242,7 +282,7 @@ fun CalendarHeader(month: YearMonth, onPrevMonth: () -> Unit, onNextMonth: () ->
             Icon(Icons.Default.ChevronLeft, contentDescription = "Tháng trước")
         }
         Text(
-            text = "tháng ${month.monthValue} ${month.year}",
+            text = "tháng ${month.monthValue}, ${month.year}",
             fontSize = 18.sp,
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.weight(1f),

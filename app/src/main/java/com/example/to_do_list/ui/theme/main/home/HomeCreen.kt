@@ -39,13 +39,11 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.to_do_list.data.Habit
+import com.example.to_do_list.data.HabitUiState
 import com.example.to_do_list.data.HabitViewModel
 import com.example.to_do_list.navigation.Routes
 import com.example.to_do_list.ui.theme.*
-// THÊM MỚI: Import HabitIconProvider để sử dụng
 import com.example.to_do_list.ui.theme.create_habit.HabitIconProvider
-import com.google.firebase.auth.ktx.auth
-import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -53,19 +51,25 @@ import java.time.format.TextStyle
 import java.util.*
 import kotlin.math.roundToInt
 
+// Các hằng số cho bộ lọc
+private const val FILTER_ALL = "Tất cả"
+private const val FILTER_HABITS = "Thói quen"
+private const val FILTER_TASKS = "Nhiệm vụ"
+
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun HomeScreen(navController: NavController) {
     val viewModel: HabitViewModel = viewModel()
-    val habits by viewModel.habits.collectAsState()
-    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
-    val auth = Firebase.auth
+    val uiState by viewModel.uiState.collectAsState()
 
+    // --- State Management ---
+    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
+    var filterSelection by remember { mutableStateOf(FILTER_ALL) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var habitToDelete by remember { mutableStateOf<Habit?>(null) }
-
     var showCongratsDialog by remember { mutableStateOf(false) }
 
+    // --- Dialogs ---
     if (showDeleteDialog && habitToDelete != null) {
         DeleteConfirmationDialog(
             habitName = habitToDelete!!.name,
@@ -85,73 +89,232 @@ fun HomeScreen(navController: NavController) {
         CongratulationsDialog(onDismiss = { showCongratsDialog = false })
     }
 
-    LaunchedEffect(selectedDate, auth.currentUser) {
-        viewModel.loadHabitsForDate(selectedDate)
-    }
-
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        item {
-            Text(
-                text = "Hygge To-do List",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.padding(vertical = 20.dp)
-            )
-        }
-        item {
-            StatsCards(navController = navController, habitCount = habits.size)
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-        item {
-            WeekCalendar(
-                selectedDate = selectedDate,
-                onDateSelected = { selectedDate = it }
-            )
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-        item {
-            FilterChips(habits.size)
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-
-        if (habits.isEmpty()) {
-            item {
-                EmptyState()
+    // --- Main UI ---
+    // Sửa lỗi: Đưa câu lệnh 'when' ra ngoài để quản lý toàn bộ trạng thái màn hình
+    when (val state = uiState) {
+        is HabitUiState.Loading -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
             }
-        } else {
-            items(habits, key = { it.id }) { habit ->
-                SwipeToDeleteContainer(
-                    key = habit.id,
-                    onDelete = {
-                        habitToDelete = habit
-                        showDeleteDialog = true
-                    }
-                ) {
-                    HabitItem(
-                        habit = habit,
-                        selectedDate = selectedDate,
-                        onCompletedToggle = { isNowCompleted ->
-                            viewModel.toggleHabitCompletionForDate(habit.id, selectedDate, isNowCompleted)
-                            if (isNowCompleted) {
-                                showCongratsDialog = true
-                            }
-                        }
+        }
+        is HabitUiState.Error -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    text = "Lỗi: ${state.message}",
+                    color = MaterialTheme.colorScheme.error,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
+        }
+        is HabitUiState.Success -> {
+            // Sửa lỗi: Tất cả logic tính toán, bao gồm cả 'remember', giờ nằm trong môi trường Composable hợp lệ
+            val allHabits = state.habits
+            val habitsForSelectedDate = remember(allHabits, selectedDate) {
+                allHabits.filter {
+                    it.repetitionDates.contains(selectedDate.format(DateTimeFormatter.ISO_LOCAL_DATE))
+                }
+            }
+
+            // TODO: Thêm logic lấy tasksForSelectedDate khi có dữ liệu nhiệm vụ
+            val tasksForSelectedDate = emptyList<Any>()
+
+            val displayedItems = when (filterSelection) {
+                FILTER_HABITS -> habitsForSelectedDate
+                FILTER_TASKS -> tasksForSelectedDate
+                else -> habitsForSelectedDate + tasksForSelectedDate // FILTER_ALL
+            }
+
+            // LazyColumn chỉ được hiển thị khi state là Success
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(horizontal = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // --- UI Components ---
+                item {
+                    Text(
+                        text = "Hygge To-do List",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier.padding(vertical = 20.dp)
                     )
                 }
-                Spacer(modifier = Modifier.height(12.dp))
+                item {
+                    StatsCards(
+                        navController = navController,
+                        habitCount = habitsForSelectedDate.size,
+                        selectedDate = selectedDate
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                }
+                item {
+                    WeekCalendar(
+                        selectedDate = selectedDate,
+                        onDateSelected = { selectedDate = it }
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                }
+                item {
+                    FilterChips(
+                        habitCount = habitsForSelectedDate.size,
+                        taskCount = tasksForSelectedDate.size,
+                        selectedFilter = filterSelection,
+                        onFilterSelected = { filterSelection = it }
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                if (displayedItems.isEmpty()) {
+                    item { EmptyState(filterSelection) }
+                } else {
+                    items(displayedItems, key = { if (it is Habit) it.id else UUID.randomUUID() }) { item ->
+                        if (item is Habit) {
+                            SwipeToDeleteContainer(
+                                key = item.id,
+                                onDelete = {
+                                    habitToDelete = item
+                                    showDeleteDialog = true
+                                }
+                            ) {
+                                HabitItem(
+                                    habit = item,
+                                    selectedDate = selectedDate,
+                                    onCompletedToggle = { isNowCompleted ->
+                                        viewModel.toggleHabitCompletionForDate(item.id, selectedDate, isNowCompleted)
+                                        if (isNowCompleted) {
+                                            showCongratsDialog = true
+                                        }
+
+                                    }
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+                        // TODO: Thêm Composable cho "Nhiệm vụ" (Task) tại đây
+                    }
+                }
             }
         }
     }
 }
 
-// --- HÀM `HabitItem` ĐÃ ĐƯỢC CẬP NHẬT ---
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FilterChips(
+    habitCount: Int,
+    taskCount: Int,
+    selectedFilter: String,
+    onFilterSelected: (String) -> Unit
+) {
+    val filters = listOf(FILTER_ALL, FILTER_HABITS, FILTER_TASKS)
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        filters.forEach { filter ->
+            val count = when (filter) {
+                FILTER_HABITS -> habitCount
+                FILTER_TASKS -> taskCount
+                else -> habitCount + taskCount
+            }
+            FilterChip(
+                selected = selectedFilter == filter,
+                onClick = { onFilterSelected(filter) },
+                label = { Text("$filter - $count") }
+            )
+        }
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.O)
+@Composable
+fun StatsCards(navController: NavController, habitCount: Int, selectedDate: LocalDate) {
+    var userName by remember { mutableStateOf("Hygge") }
+    var showEditNameDialog by remember { mutableStateOf(false) }
+
+    if (showEditNameDialog) {
+        EditNameDialog(
+            currentName = userName,
+            onNameChange = { newName -> userName = newName },
+            onDismiss = { showEditNameDialog = false }
+        )
+    }
+
+    val formattedDateText = remember(selectedDate) {
+        val vietnameseLocale = Locale("vi")
+        val dayOfWeek = selectedDate.dayOfWeek.getDisplayName(TextStyle.FULL, vietnameseLocale).replaceFirstChar { it.titlecase(vietnameseLocale) }
+        val dayOfMonth = selectedDate.dayOfMonth
+        val month = selectedDate.monthValue
+        "$dayOfWeek, $dayOfMonth tháng $month"
+    }
+
+    Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Card(modifier = Modifier.weight(1.8f).fillMaxHeight(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = CardDarkBackground)) {
+            Row(modifier = Modifier.fillMaxSize().padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.Person, "User",
+                    modifier = Modifier.size(48.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f), CircleShape).padding(8.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(userName, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Text(formattedDateText, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                IconButton(onClick = { showEditNameDialog = true }) {
+                    Icon(Icons.Default.Edit, "Edit Name", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        Card(
+            modifier = Modifier.weight(1f).fillMaxHeight(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(habitCount.toString(), fontWeight = FontWeight.Bold, fontSize = 24.sp, color = MaterialTheme.colorScheme.onPrimary)
+                    Text("Thói quen", fontSize = 12.sp, color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f))
+                }
+                Box(
+                    modifier = Modifier.size(32.dp).shadow(4.dp, CircleShape).clip(CircleShape).background(Color.White).clickable { navController.navigate(Routes.ADD_HABIT) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.Add, "Thêm thói quen", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
+fun EmptyState(filter: String) {
+    val message = when (filter) {
+        FILTER_HABITS -> "Không có thói quen nào."
+        FILTER_TASKS -> "Không có nhiệm vụ nào."
+        else -> "Bạn không có lịch trình nào vào hôm nay."
+    }
+    Column(
+        modifier = Modifier.padding(vertical = 32.dp).fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.Inventory2,
+            contentDescription = "Empty",
+            modifier = Modifier.size(80.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+        )
+        Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+    }
+}
+
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun HabitItem(
@@ -164,17 +327,9 @@ fun HabitItem(
     } catch (e: IllegalArgumentException) {
         MaterialTheme.colorScheme.primary
     }
-
-    // THAY ĐỔI: Lấy icon chính xác từ provider dựa trên `iconName` đã lưu
     val habitIcon = HabitIconProvider.getIcon(habit.iconName, null)
-
     val isCompletedForDay = habit.completedDates.contains(selectedDate.format(DateTimeFormatter.ISO_LOCAL_DATE))
-
-    val cardContainerColor = if (isCompletedForDay) {
-        lerp(habitColor, MaterialTheme.colorScheme.surface, 0.5f)
-    } else {
-        habitColor
-    }
+    val cardContainerColor = if (isCompletedForDay) lerp(habitColor, MaterialTheme.colorScheme.surface, 0.5f) else habitColor
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -183,19 +338,16 @@ fun HabitItem(
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 20.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 20.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = habitIcon, // Sử dụng icon đã được lấy ra
+                imageVector = habitIcon,
                 contentDescription = "Habit Icon",
                 tint = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier.size(40.dp)
             )
             Spacer(modifier = Modifier.width(16.dp))
-
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = habit.name,
@@ -205,22 +357,18 @@ fun HabitItem(
                     textDecoration = if (isCompletedForDay) TextDecoration.LineThrough else TextDecoration.None
                 )
                 Text(
-                    text = habit.reminderTime ?: "No Time Selected",
+                    text = habit.reminderTime ?: "Chưa đặt giờ",
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
                     textDecoration = if (isCompletedForDay) TextDecoration.LineThrough else TextDecoration.None
                 )
             }
             Spacer(modifier = Modifier.width(16.dp))
-
             Box(
                 modifier = Modifier
                     .size(28.dp)
                     .clip(CircleShape)
-                    .background(
-                        color = if (isCompletedForDay) Color.White else Color.Transparent,
-                        shape = CircleShape
-                    )
+                    .background(if (isCompletedForDay) Color.White else Color.Transparent, CircleShape)
                     .border(2.dp, MaterialTheme.colorScheme.onPrimary, CircleShape)
                     .clickable { onCompletedToggle(!isCompletedForDay) },
                 contentAlignment = Alignment.Center
@@ -238,9 +386,6 @@ fun HabitItem(
     }
 }
 
-
-// --- CÁC HÀM KHÁC KHÔNG THAY ĐỔI ---
-
 @Composable
 fun CongratulationsDialog(onDismiss: () -> Unit) {
     AlertDialog(
@@ -254,26 +399,14 @@ fun CongratulationsDialog(onDismiss: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text("🎉", fontSize = 48.sp)
-                Text(
-                    text = "Chúc mừng",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 22.sp,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "Của bạn Habit đã xong!!",
-                    fontSize = 16.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
+                Text("Chúc mừng", fontWeight = FontWeight.Bold, fontSize = 22.sp)
+                Text("Bạn đã hoàn thành thói quen!", fontSize = 16.sp, textAlign = TextAlign.Center)
             }
         },
         confirmButton = {
             Button(
                 onClick = onDismiss,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
+                modifier = Modifier.fillMaxWidth().height(50.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
                 shape = RoundedCornerShape(50)
             ) {
@@ -284,25 +417,14 @@ fun CongratulationsDialog(onDismiss: () -> Unit) {
 }
 
 @Composable
-fun SwipeToDeleteContainer(
-    key: Any,
-    onDelete: () -> Unit,
-    content: @Composable () -> Unit
-) {
+fun SwipeToDeleteContainer(key: Any, onDelete: () -> Unit, content: @Composable () -> Unit) {
     var offsetX by remember(key) { mutableStateOf(0f) }
     val coroutineScope = rememberCoroutineScope()
     val deleteButtonWidth = 80.dp
 
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-    ) {
+    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))) {
         Box(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .width(deleteButtonWidth)
-                .fillMaxHeight(),
+            modifier = Modifier.align(Alignment.CenterEnd).width(deleteButtonWidth).fillMaxHeight(),
             contentAlignment = Alignment.Center
         ) {
             Column(
@@ -310,15 +432,10 @@ fun SwipeToDeleteContainer(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Xóa",
-                    tint = AccentRed
-                )
-                Text("Delete", color = AccentRed, fontSize = 12.sp)
+                Icon(Icons.Default.Delete, contentDescription = "Xóa", tint = AccentRed)
+                Text("Xóa", color = AccentRed, fontSize = 12.sp)
             }
         }
-
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -328,17 +445,12 @@ fun SwipeToDeleteContainer(
                         onDragEnd = {
                             coroutineScope.launch {
                                 val deleteWidthPx = deleteButtonWidth.toPx()
-                                if (offsetX < -deleteWidthPx / 2) {
-                                    offsetX = -deleteWidthPx
-                                } else {
-                                    offsetX = 0f
-                                }
+                                offsetX = if (offsetX < -deleteWidthPx / 2) -deleteWidthPx else 0f
                             }
                         },
                         onHorizontalDrag = { change, dragAmount ->
                             val deleteWidthPx = deleteButtonWidth.toPx()
-                            val newOffsetX = (offsetX + dragAmount).coerceIn(-deleteWidthPx, 0f)
-                            offsetX = newOffsetX
+                            offsetX = (offsetX + dragAmount).coerceIn(-deleteWidthPx, 0f)
                             change.consume()
                         }
                     )
@@ -350,189 +462,51 @@ fun SwipeToDeleteContainer(
 }
 
 @Composable
-fun DeleteConfirmationDialog(
-    habitName: String,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit
-) {
+fun DeleteConfirmationDialog(habitName: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(28.dp),
         title = {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(
-                    imageVector = Icons.Default.DeleteOutline,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(32.dp)
-                )
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Default.DeleteOutline, contentDescription = null, modifier = Modifier.size(32.dp))
                 Spacer(modifier = Modifier.height(16.dp))
                 Text("Xóa thói quen", fontWeight = FontWeight.Bold, fontSize = 20.sp)
             }
         },
         text = {
             Text(
-                text = "Bạn có chắc chắn muốn xóa thói quen?",
+                "Bạn có chắc chắn muốn xóa thói quen \"$habitName\"?",
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                modifier = Modifier.fillMaxWidth()
             )
         },
         confirmButton = {
             Button(
                 onClick = onConfirm,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
+                modifier = Modifier.fillMaxWidth().height(50.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = AccentRed),
                 shape = RoundedCornerShape(50)
             ) {
-                Text("Đúng", fontWeight = FontWeight.Bold)
+                Text("Xóa", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
             OutlinedButton(
                 onClick = onDismiss,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
+                modifier = Modifier.fillMaxWidth().height(50.dp),
                 shape = RoundedCornerShape(50),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
             ) {
-                Text("Không", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                Text("Hủy", fontWeight = FontWeight.Bold)
             }
         }
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FilterChips(habitCount: Int) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        FilterChip(selected = true, onClick = { }, label = { Text("Tất cả - $habitCount") })
-        FilterChip(selected = false, onClick = { }, label = { Text("Thói quen - $habitCount") })
-        FilterChip(selected = false, onClick = { }, label = { Text("Nhiệm vụ - 0") })
-    }
-}
-
-@RequiresApi(Build.VERSION_CODES.O)
-@Composable
-fun StatsCards(navController: NavController, habitCount: Int) {
-    var userName by remember { mutableStateOf("Hygge") }
-    var showEditNameDialog by remember { mutableStateOf(false) }
-
-    if (showEditNameDialog) {
-        EditNameDialog(
-            currentName = userName,
-            onNameChange = { newName -> userName = newName },
-            onDismiss = { showEditNameDialog = false }
-        )
-    }
-
-    val currentDateTextInEnglish = remember {
-        val now = LocalDate.now()
-        val dayOfWeek = now.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
-        val dayOfMonth = now.dayOfMonth
-        val daySuffix = getDayOfMonthSuffix(dayOfMonth)
-        val month = now.month.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
-        "$dayOfWeek ${dayOfMonth}${daySuffix}, $month"
-    }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(IntrinsicSize.Min),
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Card(
-            modifier = Modifier
-                .weight(1.8f)
-                .fillMaxHeight(),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = CardDarkBackground)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(start = 16.dp, end = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = "User",
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f), CircleShape)
-                        .padding(8.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(userName, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface)
-                    Text(currentDateTextInEnglish, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                IconButton(onClick = { showEditNameDialog = true }) {
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = "Edit Name",
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
-
-        Card(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight(),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(habitCount.toString(), fontWeight = FontWeight.Bold, fontSize = 24.sp, color = MaterialTheme.colorScheme.onPrimary)
-                    Text("Thói quen", fontSize = 12.sp, color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f))
-                }
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .shadow(4.dp, CircleShape)
-                        .clip(CircleShape)
-                        .background(Color.White)
-                        .clickable { navController.navigate(Routes.ADD_HABIT) },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "Thêm thói quen",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun EditNameDialog(
-    currentName: String,
-    onNameChange: (String) -> Unit,
-    onDismiss: () -> Unit
-) {
+fun EditNameDialog(currentName: String, onNameChange: (String) -> Unit, onDismiss: () -> Unit) {
     var text by remember { mutableStateOf(currentName) }
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Đổi tên của bạn") },
@@ -546,21 +520,10 @@ fun EditNameDialog(
             )
         },
         confirmButton = {
-            Button(
-                onClick = {
-                    if (text.isNotBlank()) {
-                        onNameChange(text)
-                    }
-                    onDismiss()
-                }
-            ) {
-                Text("Lưu")
-            }
+            Button(onClick = { if (text.isNotBlank()) { onNameChange(text) }; onDismiss() }) { Text("Lưu") }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Hủy")
-            }
+            TextButton(onClick = onDismiss) { Text("Hủy") }
         }
     )
 }
@@ -573,10 +536,8 @@ fun WeekCalendar(selectedDate: LocalDate, onDateSelected: (LocalDate) -> Unit) {
     val today = LocalDate.now()
     val todayIndex = 365
     val scrollIndex = (todayIndex - 2).coerceAtLeast(0)
-
     val lazyListState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
-
     val dates = (-365..365).map {
         val date = today.plusDays(it.toLong())
         CalendarDate(
@@ -586,38 +547,23 @@ fun WeekCalendar(selectedDate: LocalDate, onDateSelected: (LocalDate) -> Unit) {
         )
     }
 
-    LaunchedEffect(Unit) {
-        lazyListState.scrollToItem(scrollIndex)
-    }
+    LaunchedEffect(Unit) { lazyListState.scrollToItem(scrollIndex) }
 
-    Box(
-        modifier = Modifier.fillMaxWidth(),
-        contentAlignment = Alignment.Center
-    ) {
-        LazyRow(
-            state = lazyListState,
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(horizontal = 16.dp)
-        ) {
+    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        LazyRow(state = lazyListState, horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(horizontal = 16.dp)) {
             itemsIndexed(items = dates, key = { _, date -> date.date }) { index, date ->
                 DateItem(
                     date = date,
                     isSelected = date.date == selectedDate,
                     onDateClick = {
                         onDateSelected(it)
-                        coroutineScope.launch {
-                            lazyListState.animateScrollToItem(index = (index - 2).coerceAtLeast(0))
-                        }
+                        coroutineScope.launch { lazyListState.animateScrollToItem(index = (index - 2).coerceAtLeast(0)) }
                     }
                 )
             }
         }
-
         AnimatedVisibility(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .padding(end = 4.dp),
+            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 4.dp),
             visible = selectedDate != today,
             enter = fadeIn(animationSpec = tween(300)),
             exit = fadeOut(animationSpec = tween(300))
@@ -629,30 +575,19 @@ fun WeekCalendar(selectedDate: LocalDate, onDateSelected: (LocalDate) -> Unit) {
                     .background(OffWhite)
                     .clickable {
                         onDateSelected(today)
-                        coroutineScope.launch {
-                            lazyListState.animateScrollToItem(index = scrollIndex)
-                        }
+                        coroutineScope.launch { lazyListState.animateScrollToItem(index = scrollIndex) }
                     }
                     .padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Quay về hôm nay",
-                    tint = DarkBackground
-                )
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay về hôm nay", tint = DarkBackground)
                 Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = "Hôm nay",
-                    color = DarkBackground,
-                    fontWeight = FontWeight.Medium
-                )
+                Text("Hôm nay", color = DarkBackground, fontWeight = FontWeight.Medium)
             }
         }
     }
 }
-
 
 @Composable
 fun DateItem(date: CalendarDate, isSelected: Boolean, onDateClick: (LocalDate) -> Unit) {
@@ -660,48 +595,11 @@ fun DateItem(date: CalendarDate, isSelected: Boolean, onDateClick: (LocalDate) -
     val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primary else CardDarkBackground
 
     Column(
-        modifier = Modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(backgroundColor)
-            .clickable { onDateClick(date.date) }
-            .padding(vertical = 16.dp, horizontal = 20.dp),
+        modifier = Modifier.clip(RoundedCornerShape(16.dp)).background(backgroundColor).clickable { onDateClick(date.date) }.padding(vertical = 16.dp, horizontal = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text(text = date.dayOfMonth.toString(), fontWeight = FontWeight.Bold, color = contentColor, fontSize = 20.sp)
-        Text(text = date.dayOfWeek, color = contentColor, fontSize = 14.sp)
-    }
-}
-
-@Composable
-fun EmptyState() {
-    Column(
-        modifier = Modifier.padding(vertical = 32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Icon(
-            imageVector = Icons.Outlined.Inventory2,
-            contentDescription = "Empty",
-            modifier = Modifier.size(80.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-        )
-        Text(
-            text = "Không có nhiệm vụ nào",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-    }
-}
-
-private fun getDayOfMonthSuffix(n: Int): String {
-    if (n in 11..13) {
-        return "th"
-    }
-    return when (n % 10) {
-        1 -> "st"
-        2 -> "nd"
-        3 -> "rd"
-        else -> "th"
+        Text(date.dayOfMonth.toString(), fontWeight = FontWeight.Bold, color = contentColor, fontSize = 20.sp)
+        Text(date.dayOfWeek, color = contentColor, fontSize = 14.sp)
     }
 }
