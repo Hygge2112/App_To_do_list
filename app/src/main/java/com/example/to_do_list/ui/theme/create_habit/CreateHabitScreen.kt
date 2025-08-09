@@ -1,6 +1,7 @@
 package com.example.to_do_list.ui.theme.create_habit
 
 import android.os.Build
+import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -28,6 +29,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -48,7 +50,6 @@ import androidx.compose.foundation.lazy.items as foundationLazyItems
 
 // --- TRUNG TÂM QUẢN LÝ ICON ---
 object HabitIconProvider {
-    // Bản đồ chứa TẤT CẢ các icon có thể sử dụng
     private val iconMap: Map<String, ImageVector> = mapOf(
         // Icons cho Danh mục chính
         "Psychology" to Icons.Default.Psychology, "Work" to Icons.Default.Work, "Lock" to Icons.Default.Lock,
@@ -58,7 +59,7 @@ object HabitIconProvider {
         "SelfImprovement" to Icons.Default.SelfImprovement, "FitnessCenter" to Icons.Default.FitnessCenter,
         "Spa" to Icons.Default.Spa, "EditNote" to Icons.Default.EditNote, "Lightbulb" to Icons.Default.Lightbulb,
 
-        // Icons cho các Gợi ý cụ thể (ĐÃ BỔ SUNG)
+        // Icons cho các Gợi ý cụ thể
         "Task" to Icons.Default.Task, "Bedtime" to Icons.Default.Bedtime, "PriorityHigh" to Icons.Default.PriorityHigh,
         "FlightTakeoff" to Icons.Default.FlightTakeoff, "Description" to Icons.Default.Description,
         "Groups" to Icons.Default.Groups, "ContactPage" to Icons.Default.ContactPage, "ReceiptLong" to Icons.Default.ReceiptLong,
@@ -118,7 +119,7 @@ object HabitIconProvider {
     }
 }
 
-// ... (Phần còn lại của tệp giữ nguyên)
+
 @RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -133,6 +134,8 @@ fun CreateHabitScreen(navController: NavController, habitName: String?, category
     var selectedTime by remember { mutableStateOf<LocalTime?>(null) }
 
     val habitIcon = HabitIconProvider.getIcon(iconName, categoryName)
+
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -150,9 +153,16 @@ fun CreateHabitScreen(navController: NavController, habitName: String?, category
         },
         bottomBar = {
             CreateHabitBottomButton(onClick = {
-                if (habitNameState.isNotBlank()) {
+                // Logic kiểm tra hợp lệ
+                if (selectedDates.isEmpty()) {
+                    Toast.makeText(context, "Vui lòng chọn ít nhất một ngày lặp lại", Toast.LENGTH_SHORT).show()
+                } else if (selectedTime == null) {
+                    Toast.makeText(context, "Vui lòng chọn thời gian", Toast.LENGTH_SHORT).show()
+                }
+                else {
+                    val finalHabitName = habitNameState.ifBlank { "Thói quen không tên" }
                     val newHabit = Habit(
-                        name = habitNameState,
+                        name = finalHabitName,
                         color = "#${Integer.toHexString(selectedColor.toArgb()).substring(2).uppercase()}",
                         repetitionDates = selectedDates.map { it.format(DateTimeFormatter.ISO_LOCAL_DATE) },
                         reminderTime = selectedTime?.format(DateTimeFormatter.ofPattern("HH:mm")),
