@@ -62,6 +62,9 @@ dependencies {
     // Thư viện ViewModel để quản lý logic, cần thiết cho AuthViewModel
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.1")
 
+    // <-- THÊM MỚI: Thư viện Google AI (Gemini) -->
+    implementation("com.google.ai.client.generativeai:generativeai:0.3.0")
+
     // Các thư viện AndroidX và Jetpack Compose
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.1")
@@ -86,7 +89,4 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
-
-    // Dòng này bị trùng và sai phiên bản, đã được xóa đi
-    // implementation(platform("com.google.firebase:firebase-bom:33.16.0"))
 }

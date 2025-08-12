@@ -3,7 +3,6 @@ package com.example.to_do_list.ui.theme.main
 import android.annotation.SuppressLint
 import android.os.Build
 import androidx.annotation.RequiresApi
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -13,20 +12,18 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+// <-- THÊM MỚI: Import Routes để sử dụng hằng số -->
+import com.example.to_do_list.navigation.Routes
 import com.example.to_do_list.ui.theme.CardDarkBackground
 import com.example.to_do_list.ui.theme.TextPrimaryDark
 import com.example.to_do_list.ui.theme.main.calendar.CalendarScreen
@@ -50,20 +47,19 @@ fun MainScreen(navController: NavController) {
         MainScreenItems.Settings
     )
 
-    // --- THAY ĐỔI Ở ĐÂY: Thay thế FAB tròn bằng FAB dài ---
     Scaffold(
         floatingActionButton = {
             ExtendedFloatingActionButton(
-                onClick = { /* TODO: Mở màn hình thêm nhiệm vụ */ },
-                containerColor = CardDarkBackground, // Màu nền xám tối
-                contentColor = TextPrimaryDark,      // Màu chữ/icon trắng
-                text = { Text("Thêm nhiệm vụ", fontWeight = FontWeight.SemiBold) },
-                icon = { Icon(Icons.Default.Add, contentDescription = "Thêm nhiệm vụ") }
+                // <-- SỬA ĐỔI: Thêm hành động điều hướng đến màn hình AI Chat -->
+                onClick = { navController.navigate(Routes.AI_CHAT) },
+                containerColor = CardDarkBackground,
+                contentColor = TextPrimaryDark,
+                text = { Text("AI Agent", fontWeight = FontWeight.SemiBold) },
+                icon = { Icon(Icons.Default.Add, contentDescription = "AI Agent") }
             )
         },
         floatingActionButtonPosition = FabPosition.Center,
         bottomBar = {
-            // BottomAppBar bây giờ chỉ dùng để chứa các tab, không cần logic phức tạp
             NavigationBar(
                 containerColor = MaterialTheme.colorScheme.background
             ) {
