@@ -156,9 +156,8 @@ fun CreateHabitScreen(navController: NavController, habitName: String?, category
                 // Logic kiểm tra hợp lệ
                 if (selectedDates.isEmpty()) {
                     Toast.makeText(context, "Vui lòng chọn ít nhất một ngày lặp lại", Toast.LENGTH_SHORT).show()
-                } else if (selectedTime == null) {
-                    Toast.makeText(context, "Vui lòng chọn thời gian", Toast.LENGTH_SHORT).show()
                 }
+                // SỬA ĐỔI: Xóa bỏ việc bắt buộc người dùng phải chọn giờ. Giờ đây, nhắc nhở là tùy chọn.
                 else {
                     val finalHabitName = habitNameState.ifBlank { "Thói quen không tên" }
                     val newHabit = Habit(

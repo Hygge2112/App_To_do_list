@@ -90,14 +90,14 @@ fun HomeScreen(navController: NavController) {
     }
 
     // --- Main UI ---
-    // Sửa lỗi: Đưa câu lệnh 'when' ra ngoài để quản lý toàn bộ trạng thái màn hình
     when (val state = uiState) {
         is HabitUiState.Loading -> {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
         }
-        is HabitUiState.Error -> {
+        // SỬA LỖI: Đổi 'Error' thành 'Failure' để khớp với logic mới
+        is HabitUiState.Failure -> {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
                     text = "Lỗi: ${state.message}",
@@ -108,7 +108,6 @@ fun HomeScreen(navController: NavController) {
             }
         }
         is HabitUiState.Success -> {
-            // Sửa lỗi: Tất cả logic tính toán, bao gồm cả 'remember', giờ nằm trong môi trường Composable hợp lệ
             val allHabits = state.habits
             val habitsForSelectedDate = remember(allHabits, selectedDate) {
                 allHabits.filter {
@@ -125,7 +124,6 @@ fun HomeScreen(navController: NavController) {
                 else -> habitsForSelectedDate + tasksForSelectedDate // FILTER_ALL
             }
 
-            // LazyColumn chỉ được hiển thị khi state là Success
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()

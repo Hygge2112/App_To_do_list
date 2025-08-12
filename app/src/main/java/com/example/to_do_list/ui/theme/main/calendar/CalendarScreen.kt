@@ -66,7 +66,8 @@ fun CalendarScreen() {
                     CircularProgressIndicator()
                 }
             }
-            is HabitUiState.Error -> {
+            // SỬA LỖI: Đổi 'Error' thành 'Failure' để khớp với logic mới
+            is HabitUiState.Failure -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("Lỗi: ${state.message}", color = MaterialTheme.colorScheme.error)
                 }
