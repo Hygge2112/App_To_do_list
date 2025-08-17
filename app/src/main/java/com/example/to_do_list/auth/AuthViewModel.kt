@@ -23,50 +23,45 @@ class AuthViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState = _uiState.asStateFlow()
 
-    /**
-     * Đăng ký người dùng mới bằng email và mật khẩu.
-     * @param email Email của người dùng.
-     * @param password Mật khẩu của người dùng.
-     * @param onSuccess Callback được gọi khi đăng ký thành công.
-     */
+    /** Đăng ký */
     fun signUpUser(email: String, password: String, onSuccess: () -> Unit) {
         viewModelScope.launch {
             _uiState.value = AuthUiState(isLoading = true)
             try {
                 auth.createUserWithEmailAndPassword(email, password).await()
-                // Đăng ký thành công, gọi callback để điều hướng
                 onSuccess()
             } catch (e: Exception) {
-                // Nếu có lỗi, cập nhật trạng thái lỗi
                 _uiState.value = AuthUiState(error = e.message ?: "Đã có lỗi xảy ra")
             }
         }
     }
 
-    /**
-     * Đăng nhập người dùng bằng email và mật khẩu.
-     * @param email Email của người dùng.
-     * @param password Mật khẩu của người dùng.
-     * @param onSuccess Callback được gọi khi đăng nhập thành công.
-     */
+    /** Đăng nhập */
     fun loginUser(email: String, password: String, onSuccess: () -> Unit) {
         viewModelScope.launch {
             _uiState.value = AuthUiState(isLoading = true)
             try {
                 auth.signInWithEmailAndPassword(email, password).await()
-                // Đăng nhập thành công, gọi callback để điều hướng
                 onSuccess()
             } catch (e: Exception) {
-                // Nếu có lỗi, cập nhật trạng thái lỗi
                 _uiState.value = AuthUiState(error = e.message ?: "Đã có lỗi xảy ra")
             }
         }
     }
 
-    /**
-     * Đặt lại trạng thái lỗi sau khi đã hiển thị.
-     */
+    /** Xóa lỗi */
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null, isLoading = false)
+    }
+
+    /** Đăng xuất người dùng hiện tại */
+    fun logoutUser() {
+        viewModelScope.launch {
+            try {
+                auth.signOut()
+            } finally {
+                _uiState.value = AuthUiState() // reset state
+            }
+        }
     }
 }

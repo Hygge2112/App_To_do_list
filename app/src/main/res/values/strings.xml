@@ -1,3 +1,27 @@
 <resources>
     <string name="app_name">To_do_list</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="language_title">Language</string>
+    <string name="lang_vi">Vietnamese</string>
+    <string name="lang_en">English</string>
+    <string name="logout">Logout</string>
+    <string name="switched_to_vi">Switched to Vietnamese</string>
+    <string name="switched_to_en">Switched to English</string>
+    <string name="error">Error</string>
+    <string name="ok">OK</string>
+
+    <!-- Auth -->
+    <string name="login">Login</string>
+    <string name="sign_up">Sign up</string>
+    <string name="email">Email</string>
+    <string name="password">Password</string>
+    <string name="or">OR</string>
+    <string name="connect_google">Continue with Google</string>
+    <string name="login_facebook">Login with Facebook</string>
+    <string name="forgot_password">Forgot password?</string>
+
+    <!-- Misc (optional) -->
+    <string name="ai_agent">AI Agent</string>
 </resources>

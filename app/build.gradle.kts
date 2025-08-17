@@ -53,6 +53,8 @@ dependencies {
 
     // Firebase Bill of Materials (BOM) - Chỉ cần khai báo một lần
     implementation(platform("com.google.firebase:firebase-bom:33.1.1"))
+    implementation("androidx.appcompat:appcompat:1.6.1")
+// hoặc 1.7.0+
 
     // Các thư viện Firebase
     implementation("com.google.firebase:firebase-auth-ktx")

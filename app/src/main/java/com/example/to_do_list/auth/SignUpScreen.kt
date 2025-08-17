@@ -12,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -20,7 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.example.to_do_list.navigation.Routes
+import com.example.to_do_list.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,15 +36,15 @@ fun SignUpScreen(
     var password by remember { mutableStateOf("") }
     var isPasswordVisible by remember { mutableStateOf(false) }
 
-    // Hiển thị thông báo lỗi nếu có
+    // Hiển thị lỗi (nếu có)
     uiState.error?.let {
         AlertDialog(
             onDismissRequest = { authViewModel.clearError() },
-            title = { Text("Lỗi") },
+            title = { Text(stringResource(R.string.error)) },
             text = { Text(it) },
             confirmButton = {
                 Button(onClick = { authViewModel.clearError() }) {
-                    Text("OK")
+                    Text(stringResource(R.string.ok))
                 }
             }
         )
@@ -55,7 +56,7 @@ fun SignUpScreen(
                 title = { },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
@@ -71,44 +72,50 @@ fun SignUpScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Đăng ký",
+                text = stringResource(R.string.sign_up),
                 fontSize = 28.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
+                fontWeight = FontWeight.Bold
             )
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(Modifier.height(32.dp))
 
-            // Các nút đăng nhập mạng xã hội (ĐÃ BỎ ICON)
-            SocialLoginButton(
-                text = "Kết nối với Google",
-                iconResId = null, // Bỏ icon
-                onClick = { /* TODO: Xử lý đăng ký Google */ }
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            SocialLoginButton(
-                text = "Đăng nhập với Facebook",
-                iconResId = null, // Bỏ icon
-                onClick = { /* TODO: Xử lý đăng ký Apple */ }
-            )
+            // Hai nút social đơn giản (tránh phụ thuộc vào SocialLoginButton nếu file khác cũng định nghĩa)
+            OutlinedButton(
+                onClick = { /* TODO: Google */ },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(stringResource(R.string.connect_google), fontWeight = FontWeight.SemiBold)
+            }
+            Spacer(Modifier.height(16.dp))
+            OutlinedButton(
+                onClick = { /* TODO: Facebook */ },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(stringResource(R.string.login_facebook), fontWeight = FontWeight.SemiBold)
+            }
 
-            Spacer(modifier = Modifier.height(24.dp))
-            Text("HOẶC", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(Modifier.height(24.dp))
+            Text(stringResource(R.string.or), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(24.dp))
 
-            // Các trường nhập liệu
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
-                label = { Text("Email") },
+                label = { Text(stringResource(R.string.email)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(Modifier.height(16.dp))
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
-                label = { Text("Mật khẩu") },
+                label = { Text(stringResource(R.string.password)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -116,17 +123,18 @@ fun SignUpScreen(
                 trailingIcon = {
                     IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
                         Icon(
-                            imageVector = if (isPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                            contentDescription = "Toggle password visibility"
+                            imageVector = if (isPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                            contentDescription = null
                         )
                     }
                 }
             )
-            Spacer(modifier = Modifier.height(32.dp))
 
-            // Nút Đăng ký
+            Spacer(Modifier.height(32.dp))
+
             Button(
                 onClick = {
+                    // Đổi tên hàm cho đúng với AuthViewModel của bạn nếu khác
                     authViewModel.signUpUser(email, password, onSuccess = onSignUpSuccess)
                 },
                 modifier = Modifier
@@ -136,14 +144,13 @@ fun SignUpScreen(
                 enabled = !uiState.isLoading
             ) {
                 if (uiState.isLoading) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
                 } else {
-                    Text("ĐĂNG KÝ", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.sign_up), fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            TextButton(onClick = { navController.navigate(Routes.LOGIN) }) {
-                Text("Đăng nhập")
             }
         }
     }

@@ -22,7 +22,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-// <-- THÊM MỚI: Import Routes để sử dụng hằng số -->
 import com.example.to_do_list.navigation.Routes
 import com.example.to_do_list.ui.theme.CardDarkBackground
 import com.example.to_do_list.ui.theme.TextPrimaryDark
@@ -47,16 +46,22 @@ fun MainScreen(navController: NavController) {
         MainScreenItems.Settings
     )
 
+    // Theo dõi tab hiện tại để ẩn FAB khi ở màn Cài đặt
+    val bottomBackStackEntry by bottomNavController.currentBackStackEntryAsState()
+    val currentBottomRoute = bottomBackStackEntry?.destination?.route
+    val isOnSettings = currentBottomRoute == MainScreenItems.Settings.route
+
     Scaffold(
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                // <-- SỬA ĐỔI: Thêm hành động điều hướng đến màn hình AI Chat -->
-                onClick = { navController.navigate(Routes.AI_CHAT) },
-                containerColor = CardDarkBackground,
-                contentColor = TextPrimaryDark,
-                text = { Text("AI Agent", fontWeight = FontWeight.SemiBold) },
-                icon = { Icon(Icons.Default.Add, contentDescription = "AI Agent") }
-            )
+            if (!isOnSettings) {
+                ExtendedFloatingActionButton(
+                    onClick = { navController.navigate(Routes.AI_CHAT) },
+                    containerColor = CardDarkBackground,
+                    contentColor = TextPrimaryDark,
+                    text = { Text("AI Agent", fontWeight = FontWeight.SemiBold) },
+                    icon = { Icon(Icons.Default.Add, contentDescription = "AI Agent") }
+                )
+            }
         },
         floatingActionButtonPosition = FabPosition.Center,
         bottomBar = {
@@ -99,7 +104,11 @@ fun MainScreen(navController: NavController) {
         ) {
             composable(MainScreenItems.Home.route) { HomeScreen(navController = navController) }
             composable(MainScreenItems.Calendar.route) { CalendarScreen() }
-            composable(MainScreenItems.Settings.route) { SettingsScreen() }
+
+            // ✅ Truyền root navController vào SettingsScreen để nút Đăng xuất điều hướng đúng
+            composable(MainScreenItems.Settings.route) {
+                SettingsScreen(navController = navController)
+            }
         }
     }
 }

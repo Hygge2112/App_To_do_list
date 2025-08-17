@@ -30,7 +30,7 @@ class AIChatViewModel(
 
     private val generativeModel = GenerativeModel(
         modelName = "gemini-1.5-flash",
-        apiKey = "AIzaSyCQf2vAPiFTWLxZlzuar-p-ogdJ4syEO1" // Nhớ thay API Key của bạn
+        apiKey = "AIzaSyCQf2vAPiFTWLxZlzuar-p-ogdJ4syEO1w" // Nhớ thay API Key của bạn
     )
 
     fun sendMessage(userInput: String) {

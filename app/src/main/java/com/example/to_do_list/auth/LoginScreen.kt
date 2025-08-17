@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -22,8 +23,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.to_do_list.R
 import com.example.to_do_list.navigation.Routes
-import com.example.to_do_list.ui.theme.CardDarkBackground
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,15 +39,14 @@ fun LoginScreen(
     var password by remember { mutableStateOf("") }
     var isPasswordVisible by remember { mutableStateOf(false) }
 
-    // Hiển thị thông báo lỗi nếu có
     uiState.error?.let {
         AlertDialog(
             onDismissRequest = { authViewModel.clearError() },
-            title = { Text("Lỗi") },
+            title = { Text(stringResource(R.string.error)) },
             text = { Text(it) },
             confirmButton = {
                 Button(onClick = { authViewModel.clearError() }) {
-                    Text("OK")
+                    Text(stringResource(R.string.ok))
                 }
             }
         )
@@ -58,7 +58,7 @@ fun LoginScreen(
                 title = { },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
@@ -74,44 +74,39 @@ fun LoginScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Đăng nhập",
+                text = stringResource(R.string.login),
                 fontSize = 28.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
+                fontWeight = FontWeight.Bold
             )
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(Modifier.height(32.dp))
 
-            // Các nút đăng nhập mạng xã hội (ĐÃ BỎ ICON)
             SocialLoginButton(
-                text = "Kết nối với Google",
-                iconResId = null, // Bỏ icon
-                onClick = { /* TODO: Xử lý đăng nhập Google */ }
+                text = stringResource(R.string.connect_google),
+                onClick = { /* TODO */ }
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(Modifier.height(16.dp))
             SocialLoginButton(
-                text = "Đăng nhập với Facebook",
-                iconResId = null, // Bỏ icon
-                onClick = { /* TODO: Xử lý đăng nhập Apple */ }
+                text = stringResource(R.string.login_facebook),
+                onClick = { /* TODO */ }
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
-            Text("HOẶC", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(Modifier.height(24.dp))
+            Text(stringResource(R.string.or), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(24.dp))
 
-            // Các trường nhập liệu
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
-                label = { Text("Email") },
+                label = { Text(stringResource(R.string.email)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(Modifier.height(16.dp))
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
-                label = { Text("Mật khẩu") },
+                label = { Text(stringResource(R.string.password)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -119,19 +114,16 @@ fun LoginScreen(
                 trailingIcon = {
                     IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
                         Icon(
-                            imageVector = if (isPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                            contentDescription = "Toggle password visibility"
+                            imageVector = if (isPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                            contentDescription = null
                         )
                     }
                 }
             )
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(Modifier.height(32.dp))
 
-            // Nút Đăng nhập
             Button(
-                onClick = {
-                    authViewModel.loginUser(email, password, onSuccess = onLoginSuccess)
-                },
+                onClick = { authViewModel.loginUser(email, password, onSuccess = onLoginSuccess) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
@@ -141,30 +133,31 @@ fun LoginScreen(
                 if (uiState.isLoading) {
                     CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
                 } else {
-                    Text("ĐĂNG NHẬP", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.login), fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(Modifier.height(16.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 TextButton(onClick = { navController.navigate(Routes.SIGNUP) }) {
-                    Text("Đăng ký")
+                    Text(stringResource(R.string.sign_up))
                 }
-                TextButton(onClick = { /* TODO: Xử lý quên mật khẩu */ }) {
-                    Text("Quên mật khẩu?")
+                TextButton(onClick = { /* TODO */ }) {
+                    Text(stringResource(R.string.forgot_password))
                 }
             }
         }
     }
 }
 
+/** Only ONE definition in the project to avoid overload/ambiguity */
 @Composable
 fun SocialLoginButton(
     text: String,
-    iconResId: Int?, // <-- THAY ĐỔI 1: Cho phép null
+    iconResId: Int? = null,
     onClick: () -> Unit
 ) {
     OutlinedButton(
@@ -176,12 +169,8 @@ fun SocialLoginButton(
         colors = ButtonDefaults.outlinedButtonColors(
             contentColor = MaterialTheme.colorScheme.onBackground
         ),
-        border = ButtonDefaults.outlinedButtonBorder.copy(
-            width = 1.dp,
-            brush = androidx.compose.ui.graphics.SolidColor(CardDarkBackground)
-        )
+        border = ButtonDefaults.outlinedButtonBorder
     ) {
-        // THAY ĐỔI 2: Chỉ hiển thị Icon nếu iconResId không phải là null
         if (iconResId != null) {
             Icon(
                 painter = painterResource(id = iconResId),
@@ -189,10 +178,8 @@ fun SocialLoginButton(
                 modifier = Modifier.size(24.dp),
                 tint = Color.Unspecified
             )
-            // Thêm khoảng cách nếu có icon
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(Modifier.width(16.dp))
         }
-
         Text(
             text = text,
             modifier = Modifier.weight(1f),

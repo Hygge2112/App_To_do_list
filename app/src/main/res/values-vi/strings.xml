@@ -1,0 +1,27 @@
+<resources>
+    <string name="app_name">To_do_list</string>
+
+    <!-- Cài đặt -->
+    <string name="settings_title">Cài đặt</string>
+    <string name="language_title">Ngôn ngữ</string>
+    <string name="lang_vi">Tiếng Việt</string>
+    <string name="lang_en">English</string>
+    <string name="logout">Đăng xuất</string>
+    <string name="switched_to_vi">Đã chuyển sang Tiếng Việt</string>
+    <string name="switched_to_en">Đã chuyển sang English</string>
+    <string name="error">Lỗi</string>
+    <string name="ok">OK</string>
+
+    <!-- Xác thực -->
+    <string name="login">Đăng nhập</string>
+    <string name="sign_up">Đăng ký</string>
+    <string name="email">Email</string>
+    <string name="password">Mật khẩu</string>
+    <string name="or">HOẶC</string>
+    <string name="connect_google">Kết nối với Google</string>
+    <string name="login_facebook">Đăng nhập với Facebook</string>
+    <string name="forgot_password">Quên mật khẩu?</string>
+
+    <!-- Khác (tùy chọn) -->
+    <string name="ai_agent">AI Agent</string>
+</resources>
