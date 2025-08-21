@@ -1,5 +1,6 @@
 package com.example.to_do_list.auth
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.EmailAuthProvider
@@ -7,6 +8,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.auth.ktx.userProfileChangeRequest
 import com.google.firebase.ktx.Firebase
+import com.google.firebase.storage.ktx.storage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -20,11 +22,12 @@ data class AuthUiState(
 class AuthViewModel : ViewModel() {
 
     private val auth: FirebaseAuth = Firebase.auth
+    private val storage = Firebase.storage
+
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState = _uiState.asStateFlow()
     val currentUser = auth.currentUser
 
-    // Các hàm signUpUser, loginUser, updateDisplayName giữ nguyên...
     fun signUpUser(name: String, email: String, password: String, onSuccess: () -> Unit) {
         viewModelScope.launch {
             _uiState.value = AuthUiState(isLoading = true)
@@ -32,6 +35,7 @@ class AuthViewModel : ViewModel() {
                 val result = auth.createUserWithEmailAndPassword(email, password).await()
                 val user = result.user
                 user?.let {
+                    // --- SỬA LỖI: Bỏ dấu gạch ngang ở đây ---
                     val profileUpdates = userProfileChangeRequest {
                         displayName = name
                     }
@@ -74,11 +78,33 @@ class AuthViewModel : ViewModel() {
         }
     }
 
-    // --- CẬP NHẬT: Thay thế hàm updatePassword bằng hàm mới an toàn hơn ---
-    /**
-     * Xác thực lại người dùng bằng mật khẩu cũ, sau đó cập nhật mật khẩu mới.
-     * Đây là phương pháp bảo mật được Firebase khuyến nghị.
-     */
+    fun uploadProfileImage(uri: Uri, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            _uiState.value = AuthUiState(isLoading = true)
+            try {
+                val user = auth.currentUser
+                if (user == null) {
+                    _uiState.value = AuthUiState(error = "Người dùng không tồn tại.")
+                    return@launch
+                }
+
+                val storageRef = storage.reference.child("profile_images/${user.uid}")
+                storageRef.putFile(uri).await()
+                val downloadUrl = storageRef.downloadUrl.await()
+
+                val profileUpdates = userProfileChangeRequest {
+                    photoUri = downloadUrl
+                }
+                user.updateProfile(profileUpdates).await()
+
+                _uiState.value = AuthUiState(isLoading = false)
+                onSuccess()
+            } catch (e: Exception) {
+                _uiState.value = AuthUiState(error = e.message ?: "Tải ảnh lên thất bại.")
+            }
+        }
+    }
+
     fun reauthenticateAndChangePassword(oldPassword: String, newPassword: String, onSuccess: () -> Unit) {
         viewModelScope.launch {
             _uiState.value = AuthUiState(isLoading = true)
@@ -89,13 +115,8 @@ class AuthViewModel : ViewModel() {
                     return@launch
                 }
 
-                // 1. Tạo thông tin xác thực với email và mật khẩu cũ
                 val credential = EmailAuthProvider.getCredential(user.email!!, oldPassword)
-
-                // 2. Xác thực lại người dùng
                 user.reauthenticate(credential).await()
-
-                // 3. Nếu xác thực thành công, cập nhật mật khẩu mới
                 user.updatePassword(newPassword).await()
 
                 _uiState.value = AuthUiState(isLoading = false)

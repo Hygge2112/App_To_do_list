@@ -51,21 +51,25 @@ android {
 
 dependencies {
 
-    // Firebase Bill of Materials (BOM) - Chỉ cần khai báo một lần
+    // Firebase Bill of Materials (BOM)
     implementation(platform("com.google.firebase:firebase-bom:33.1.1"))
     implementation("androidx.appcompat:appcompat:1.6.1")
-// hoặc 1.7.0+
 
     // Các thư viện Firebase
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-firestore-ktx")
     implementation("com.google.firebase:firebase-analytics")
+    // --- THÊM MỚI: Thư viện Firebase Storage ---
+    implementation("com.google.firebase:firebase-storage-ktx")
 
-    // Thư viện ViewModel để quản lý logic, cần thiết cho AuthViewModel
+    // Thư viện ViewModel
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.1")
 
-    // <-- THÊM MỚI: Thư viện Google AI (Gemini) -->
+    // Thư viện Google AI (Gemini)
     implementation("com.google.ai.client.generativeai:generativeai:0.3.0")
+
+    // --- THÊM MỚI: Thư viện Coil để tải và hiển thị ảnh ---
+    implementation("io.coil-kt:coil-compose:2.6.0")
 
     // Các thư viện AndroidX và Jetpack Compose
     implementation("androidx.core:core-ktx:1.13.1")

@@ -1,6 +1,5 @@
 package com.example.to_do_list.ui.theme.main.settings
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -29,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import coil.compose.AsyncImage
 import com.example.to_do_list.R
 import com.example.to_do_list.auth.AuthViewModel
 import com.example.to_do_list.navigation.Routes
@@ -55,14 +55,19 @@ fun SettingsScreen(
                     .padding(vertical = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.ic_launcher_background),
+                // --- CẬP NHẬT: Sử dụng AsyncImage để hiển thị ảnh từ URL ---
+                AsyncImage(
+                    model = currentUser?.photoUrl ?: R.drawable.ic_launcher_background,
                     contentDescription = "Profile Picture",
                     modifier = Modifier
                         .size(100.dp)
                         .clip(CircleShape),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Crop,
+                    placeholder = painterResource(id = R.drawable.ic_launcher_background),
+                    error = painterResource(id = R.drawable.ic_launcher_background)
                 )
+                // -----------------------------------------------------------
+
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = currentUser?.displayName ?: "User",
@@ -83,7 +88,6 @@ fun SettingsScreen(
                 SettingsItem(
                     icon = Icons.Default.Edit,
                     title = "Edit profile",
-                    // ---- CẬP NHẬT Ở ĐÂY ----
                     onClick = { navController.navigate(Routes.EDIT_PROFILE) }
                 )
                 SettingsItem(
