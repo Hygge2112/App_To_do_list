@@ -20,6 +20,7 @@ import com.example.to_do_list.ui.theme.add_habit.AddHabitScreen
 import com.example.to_do_list.ui.theme.add_habit.habit_details.HabitDetailScreen
 import com.example.to_do_list.ui.theme.create_habit.CreateHabitScreen
 import com.example.to_do_list.ui.theme.main.MainScreen
+import com.example.to_do_list.ui.theme.main.settings.edit_profile.EditProfileScreen
 
 object Routes {
     const val ONBOARDING = "onboarding"
@@ -30,13 +31,13 @@ object Routes {
     const val HABIT_DETAIL = "habit_detail/{categoryName}"
     const val CREATE_HABIT = "create_habit?habitName={habitName}&categoryName={categoryName}&iconName={iconName}"
     const val AI_CHAT = "ai_chat"
+    const val EDIT_PROFILE = "edit_profile" // <-- THÊM MỚI
 }
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun AppNavigation(startDestination: String) {
     val navController = rememberNavController()
-    // <-- SỬA ĐỔI: Khởi tạo HabitViewModel ở đây để có thể chia sẻ cho các màn hình -->
     val habitViewModel: HabitViewModel = viewModel(
         factory = HabitViewModel.HabitViewModelFactory(LocalContext.current.applicationContext as Application)
     )
@@ -98,12 +99,16 @@ fun AppNavigation(startDestination: String) {
             )
         }
 
-        // <-- SỬA ĐỔI: Truyền habitViewModel vào AIChatScreen -->
         composable(Routes.AI_CHAT) {
             AIChatScreen(
                 navController = navController,
                 habitViewModel = habitViewModel
             )
+        }
+
+        // <-- THÊM MỚI: Khai báo màn hình EditProfileScreen -->
+        composable(Routes.EDIT_PROFILE) {
+            EditProfileScreen(navController = navController)
         }
     }
 }

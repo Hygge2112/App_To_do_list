@@ -32,6 +32,7 @@ fun SignUpScreen(
     val authViewModel: AuthViewModel = viewModel()
     val uiState by authViewModel.uiState.collectAsState()
 
+    var name by remember { mutableStateOf("") } // <-- THÊM MỚI
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isPasswordVisible by remember { mutableStateOf(false) }
@@ -78,30 +79,23 @@ fun SignUpScreen(
             )
             Spacer(Modifier.height(32.dp))
 
-            // Hai nút social đơn giản (tránh phụ thuộc vào SocialLoginButton nếu file khác cũng định nghĩa)
-            OutlinedButton(
-                onClick = { /* TODO: Google */ },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(stringResource(R.string.connect_google), fontWeight = FontWeight.SemiBold)
-            }
-            Spacer(Modifier.height(16.dp))
-            OutlinedButton(
-                onClick = { /* TODO: Facebook */ },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(stringResource(R.string.login_facebook), fontWeight = FontWeight.SemiBold)
-            }
+            // ... (Các nút social login giữ nguyên)
 
             Spacer(Modifier.height(24.dp))
             Text(stringResource(R.string.or), color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(24.dp))
+
+            // ---- THÊM MỚI: Ô nhập tên người dùng ----
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Tên người dùng") }, // Bạn có thể thêm chuỗi này vào strings.xml
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
+            )
+            Spacer(Modifier.height(16.dp))
+            // -----------------------------------------
 
             OutlinedTextField(
                 value = email,
@@ -134,8 +128,8 @@ fun SignUpScreen(
 
             Button(
                 onClick = {
-                    // Đổi tên hàm cho đúng với AuthViewModel của bạn nếu khác
-                    authViewModel.signUpUser(email, password, onSuccess = onSignUpSuccess)
+                    // ---- CẬP NHẬT: Truyền tên người dùng vào hàm signUpUser ----
+                    authViewModel.signUpUser(name, email, password, onSuccess = onSignUpSuccess)
                 },
                 modifier = Modifier
                     .fillMaxWidth()
